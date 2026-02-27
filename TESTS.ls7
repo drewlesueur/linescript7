@@ -312,6 +312,13 @@ ASSERT_EQ numbers[3] 300 "setting-index-dynamic"
 foo.bar.baz = "hi"
 ASSERT_EQ foo.bar.baz "hi" "assign-nested"
 
+yo[1] = "yo"
+yo[2] = "woa"
+ASSERT_EQ yo[2] "woa" "assign-nested-array"
+
+someObj["bricks"] = "red"
+ASSERT_EQ someObj.bricks "red" "assign-nested-3"
+
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
 ELSE

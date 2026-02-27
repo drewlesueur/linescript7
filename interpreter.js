@@ -967,8 +967,11 @@ class Interpreter {
       return;
     }
     if (target.type === "Index") {
-      const obj = this.evalExpr(target.object, env, functions);
+      let obj = this.evalExpr(target.object, env, functions);
       const idx = this.toNumber(this.evalExpr(target.index, env, functions));
+      if (!Array.isArray(obj)) {
+        obj = this.ensureArrayForTarget(target.object, env, functions);
+      }
       if (!Array.isArray(obj)) throw new Error("Index assignment expects array");
       const i = Math.floor(idx) - 1;
       if (i < 0) throw new Error("Index must be >= 1");
@@ -1022,6 +1025,48 @@ class Interpreter {
         arr[i] = obj;
       }
       return obj;
+    }
+    return null;
+  }
+
+  ensureArrayForTarget(target, env, functions) {
+    if (target.type === "Identifier") {
+      let arr = env.get(target.name);
+      if (!Array.isArray(arr)) {
+        arr = [];
+        env.set(target.name, arr);
+      }
+      return arr;
+    }
+    if (target.type === "Member") {
+      let parent = this.evalExpr(target.object, env, functions);
+      if (!parent || typeof parent !== "object") {
+        parent = this.ensureObjectForTarget(target.object, env, functions);
+      }
+      if (!parent || typeof parent !== "object") return null;
+      let arr = parent[target.property];
+      if (!Array.isArray(arr)) {
+        arr = [];
+        parent[target.property] = arr;
+      }
+      return arr;
+    }
+    if (target.type === "Index") {
+      let arr = this.evalExpr(target.object, env, functions);
+      if (!Array.isArray(arr)) {
+        arr = this.ensureArrayForTarget(target.object, env, functions);
+      }
+      if (!Array.isArray(arr)) return null;
+      const idx = this.toNumber(this.evalExpr(target.index, env, functions));
+      const i = Math.floor(idx) - 1;
+      if (i < 0) return arr;
+      while (arr.length <= i) arr.push(null);
+      let child = arr[i];
+      if (!Array.isArray(child)) {
+        child = [];
+        arr[i] = child;
+      }
+      return child;
     }
     return null;
   }
