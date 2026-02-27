@@ -123,6 +123,12 @@ function preprocess(source) {
   const stringLiterals = {};
   let mlIndex = 0;
   const outLines = [];
+  const keywords = new Set([
+    "IF", "ELSE", "END", "WHILE", "FOR", "EACH", "IN",
+    "RETURN", "BREAK", "CONTINUE", "GOTO", "GLOBAL", "FUNC",
+    "AND", "OR", "NOT", "IS", "ISNT",
+    "TRUE", "FALSE", "NULL",
+  ]);
 
   const stripComments = (line) => {
     let out = "";
@@ -141,6 +147,43 @@ function preprocess(source) {
     const line = stripComments(raw);
     if (line.trim() === "") {
       outLines.push("");
+      continue;
+    }
+
+    const isIdent = (s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s);
+    const indent = line.match(/^\s*/)[0].length;
+    const trimmed = line.trim();
+    let isFuncDef = false;
+    if (indent === 0 && !/^[A-Za-z_][A-Za-z0-9_]*\s*:/.test(trimmed)) {
+      const parts = trimmed.split(/\s+/);
+      const first = parts[0];
+      if (isIdent(first) && !keywords.has(first)) {
+        let allIdent = true;
+        for (const p of parts) {
+          if (!isIdent(p) || keywords.has(p)) {
+            allIdent = false;
+            break;
+          }
+        }
+        if (allIdent) {
+          let j = i + 1;
+          while (j < lines.length) {
+            const nextLine = stripComments(lines[j]);
+            if (nextLine.trim() === "") {
+              j += 1;
+              continue;
+            }
+            const nextIndent = nextLine.match(/^\s*/)[0].length;
+            if (nextIndent > indent) {
+              isFuncDef = true;
+            }
+            break;
+          }
+        }
+      }
+    }
+    if (isFuncDef) {
+      outLines.push(`FUNC ${trimmed}`);
       continue;
     }
 

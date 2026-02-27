@@ -1,7 +1,7 @@
 # LineScript7 test suite
 failures = 0
 
-FUNC ASSERT_EQ actual expected label
+ASSERT_EQ actual expected label
     IF actual IS expected
         # ok
     ELSE
@@ -15,7 +15,7 @@ FUNC ASSERT_EQ actual expected label
     END
 END
 
-FUNC ASSERT_TRUE cond label
+ASSERT_TRUE cond label
     IF cond
         # ok
     ELSE
@@ -114,13 +114,13 @@ END
 ASSERT_EQ missing "fallback" "null-guard"
 
 # Functions
-FUNC ADD a b
+ADD a b
     RETURN a + b
 END
 sum = ADD 2 3
 ASSERT_EQ sum 5 "func-return"
 
-FUNC DOUBLE n
+DOUBLE n
     n * 2
 END
 twice = DOUBLE 7
@@ -128,7 +128,7 @@ ASSERT_EQ twice 14 "func-implicit-return"
 
 # Functions cannot update caller scope
 outerVal = 1
-FUNC BUMP
+BUMP
     outerVal = outerVal + 1
 END
 BUMP
@@ -136,10 +136,10 @@ ASSERT_EQ outerVal 1 "func-no-update-outer"
 
 # Nested call cannot update caller scope
 outerLocal = 5
-FUNC INNER_BUMP
+INNER_BUMP
     outerLocal = outerLocal + 3
 END
-FUNC CALLER
+CALLER
     outerLocal = 10
     INNER_BUMP
 END
@@ -148,17 +148,17 @@ ASSERT_EQ outerLocal 5 "func-no-update-caller-scope"
 
 # Functions can update globals only via GLOBAL
 GLOBAL gVal = 1
-FUNC INC_GLOBAL
+INC_GLOBAL
     GLOBAL gVal = gVal + 4
 END
 INC_GLOBAL
 ASSERT_EQ gVal 5 "func-global-update"
 
 # Functions can read from caller scope (dynamic read)
-FUNC READ_OUTER
+READ_OUTER
     RETURN outerRead
 END
-FUNC SET_AND_READ
+SET_AND_READ
     outerRead = "hi"
     RETURN READ_OUTER
 END
@@ -167,7 +167,7 @@ ASSERT_EQ readVal NULL "func-dynamic-read"
 
 # Functions can read from global scope
 GLOBAL gRead = "global"
-FUNC READ_GLOBAL
+READ_GLOBAL
     RETURN gRead
 END
 gReadVal = READ_GLOBAL
@@ -276,7 +276,7 @@ ASSERT_EQ combined "outerr" "exec-combined"
 count = LEN "yo" + LEN "woa"
 ASSERT_EQ count 5 "precedence-test"
 
-FUNC TIMES2 x
+TIMES2 x
     x * 2
 END
  

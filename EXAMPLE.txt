@@ -156,21 +156,21 @@ lenName = LEN name
 lenUser = LEN user
 
 # Function definitions and calls
-FUNC FORMAT_NAME first last
+FORMAT_NAME first last
     RETURN first + " " + last
 END
 
-FUNC AVERAGE_OF_ARRAY values
+AVERAGE_OF_ARRAY values
     total = SUM_ARRAY values
     RETURN total / LEN values
 END
 
-FUNC DEFAULT_STATUS
+DEFAULT_STATUS
     RETURN "unknown"
 END
 
 # Function with implicit return (last expression)
-FUNC DOUBLE n
+DOUBLE n
     n * 2
 END
 
