@@ -567,8 +567,8 @@ class Interpreter {
         if (!Array.isArray(arr)) return 0;
         return arr.reduce((sum, v) => sum + this.toNumber(v), 0);
       } },
-      SUBSTR: { arity: 3, fn: ([s, start, len]) => this.substr(s, start, len) },
-      SLICE: { arity: 3, fn: ([s, start, len]) => this.substr(s, start, len) },
+      SUBSTR: { arity: 3, fn: ([s, start, len]) => this.sliceValue(s, start, len) },
+      SLICE: { arity: 3, fn: ([s, start, len]) => this.sliceValue(s, start, len) },
       STRING: { arity: 1, fn: ([s]) => this.toString(s) },
       TRIM: { arity: 1, fn: ([s]) => this.toString(s).trim() },
       STARTS_WITH: { arity: 2, fn: ([s, prefix]) => this.toString(s).startsWith(this.toString(prefix)) },
@@ -887,10 +887,18 @@ class Interpreter {
     return this.toString(v);
   }
 
-  substr(s, start, len) {
-    const str = this.toString(s);
+  sliceValue(value, start, len) {
     const st = Math.max(1, Math.floor(this.toNumber(start)));
     const ln = Math.max(0, Math.floor(this.toNumber(len)));
+    if (Array.isArray(value)) {
+      if (ln <= 0) return [];
+      const startIdx = st - 1;
+      if (startIdx >= value.length) return [];
+      return value.slice(startIdx, startIdx + ln);
+    }
+    const str = this.toString(value);
+    if (ln <= 0) return "";
+    if (st - 1 >= str.length) return "";
     return str.substring(st - 1, st - 1 + ln);
   }
 }
