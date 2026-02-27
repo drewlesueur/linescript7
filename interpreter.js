@@ -587,6 +587,7 @@ class Interpreter {
       POP: { arity: 1, fn: ([arr]) => Array.isArray(arr) && arr.length ? arr.pop() : null },
       UNSHIFT: { arity: 2, fn: ([arr, v]) => { if (Array.isArray(arr)) arr.unshift(v); return arr.length; } },
       SHIFT: { arity: 1, fn: ([arr]) => Array.isArray(arr) && arr.length ? arr.shift() : null },
+      IT: { arity: 0, fn: () => (this.stack.length ? this.stack.pop() : null) },
     };
   }
 

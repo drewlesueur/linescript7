@@ -155,6 +155,13 @@ PRINT STRING stack-test
 "Drew"
 SLICE 1 2
 UPPER
+result = IT
+ASSERT_EQ result "DR" "stack-pipeline"
+
+# IT pops from stack
+"hello"
+popped = IT
+ASSERT_EQ popped "hello" "it-pop"
 
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
