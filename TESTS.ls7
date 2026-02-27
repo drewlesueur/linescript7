@@ -165,6 +165,13 @@ END
 readVal = SET_AND_READ
 ASSERT_EQ readVal NULL "func-dynamic-read"
 
+# Function hoisting (call before definition)
+hoistResult = HOISTED 2 3
+ASSERT_EQ hoistResult 6 "func-hoist"
+HOISTED a b
+    RETURN a + b + 1
+END
+
 # Functions can read from global scope
 GLOBAL gRead = "global"
 READ_GLOBAL
