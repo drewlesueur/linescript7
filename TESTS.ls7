@@ -185,6 +185,22 @@ ASSERT_EQ combined "outerr" "exec-combined"
 
 "howdy"; SLICE 2 4; UPPER; ASSERT_EQ IT "OWD" "semiconolns"
 
+count = LEN "yo" + LEN "woa"
+ASSERT_EQ count 5 "precedence-test"
+
+FUNC TIMES2 x
+    x * 2
+END
+ 
+"Hello" "World" 
+second = IT
+first = IT
+ASSERT_EQ first "Hello" "stack-check1"
+ASSERT_EQ second "World" "stack-check2"
+
+ASSERT_EQ TIMES2 3 6 "optional-return"
+
+
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
 ELSE
