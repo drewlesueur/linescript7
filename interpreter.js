@@ -200,7 +200,7 @@ class Parser {
     if (this.check("IDENT") && this.lexer.peek(1).type === "OP" && this.lexer.peek(1).value === ":") {
       return this.parseLabeledStatement();
     }
-    if (this.matchKeyword("IF")) return this.parseIf();
+    if (this.matchKeyword("IF")) return this.parseIfWithLabel(null);
     if (this.matchKeyword("WHILE")) return this.parseWhile();
     if (this.matchKeyword("FOR")) return this.parseFor();
     if (this.matchKeyword("FUNC")) return this.parseFunc();
@@ -238,7 +238,7 @@ class Parser {
     return { type: "ExprStmt", expr };
   }
 
-  parseIf() {
+  parseIfWithLabel(label) {
     const cond = this.parseExpression();
     this.consumeEnd();
     const branches = [{ cond, body: this.parseBlock(["ELSE", "END"]) }];
@@ -257,7 +257,7 @@ class Parser {
     }
     this.expectKeyword("END");
     this.consumeEnd();
-    return { type: "If", branches, elseBody };
+    return { type: "If", branches, elseBody, label };
   }
 
   parseWhile() {
@@ -315,6 +315,7 @@ class Parser {
     this.expect("OP", ":");
     if (this.matchKeyword("FOR")) return this.parseForWithLabel(label);
     if (this.matchKeyword("WHILE")) return this.parseWhileWithLabel(label);
+    if (this.matchKeyword("IF")) return this.parseIfWithLabel(label);
     this.consumeEnd();
     return { type: "Label", label };
   }
@@ -671,7 +672,7 @@ class Interpreter {
     for (let i = 0; i < stmts.length; i += 1) {
       const stmt = stmts[i];
       if (stmt.type === "Label") labelMap.set(stmt.label, i);
-      if (stmt.type === "For" || stmt.type === "ForEach" || stmt.type === "While") {
+      if (stmt.type === "For" || stmt.type === "ForEach" || stmt.type === "While" || stmt.type === "If") {
         if (stmt.label) labelMap.set(stmt.label, i);
       }
     }
@@ -711,12 +712,20 @@ class Interpreter {
         for (const branch of stmt.branches) {
           if (this.isTruthy(this.evalExpr(branch.cond, env, functions))) {
             const res = this.execBlock(branch.body, env, functions);
+            if (res.type === "break" && res.label && res.label === stmt.label) return null;
+            if (res.type === "continue" && res.label && res.label === stmt.label) {
+              throw new Error(`CONTINUE cannot target IF label: ${stmt.label}`);
+            }
             if (res.type !== "ok") return res;
             return null;
           }
         }
         if (stmt.elseBody) {
           const res = this.execBlock(stmt.elseBody, env, functions);
+          if (res.type === "break" && res.label && res.label === stmt.label) return null;
+          if (res.type === "continue" && res.label && res.label === stmt.label) {
+            throw new Error(`CONTINUE cannot target IF label: ${stmt.label}`);
+          }
           if (res.type !== "ok") return res;
         }
         return null;

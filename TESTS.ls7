@@ -177,6 +177,15 @@ OUT: FOR i FROM 1 TO 3
 END
 ASSERT_EQ sumLabel2 3 "labeled-continue"
 
+# Labeled IF + BREAK
+hit = 0
+OUTIF: IF TRUE
+    hit = hit + 1
+    BREAK OUTIF
+    hit = hit + 10
+END
+ASSERT_EQ hit 1 "labeled-if-break"
+
 # GOTO
 count = 0
 START:
