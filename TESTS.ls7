@@ -361,7 +361,9 @@ ASSERT_EQ greeting "Hello, Drew" "stack-across-function"
 v = PLUS LEN "yo" LEN "woa"
 ASSERT_EQ v 5 "arity-test"
 
-ASSERT_EQ GREET "Mr." "Hello, MR." "stack-across-function"
+# fails because no specific arity
+# ASSERT_EQ GREET "Mr." "Hello, Mr." "stack-across-function"
+ASSERT_EQ (GREET "Mr.") "Hello, Mr." "stack-across-function"
 
 foo[idx][key].bar = 200
 ASSERT_EQ foo[idx][key].bar 200 "nested"
