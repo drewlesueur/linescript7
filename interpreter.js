@@ -915,8 +915,12 @@ class Interpreter {
           }
         } else if (iterable && typeof iterable === "object") {
           for (const key of Object.keys(iterable)) {
-            if (stmt.keyVar) env.set(stmt.keyVar, key);
-            env.set(stmt.valVar, iterable[key]);
+            if (stmt.keyVar) {
+              env.set(stmt.keyVar, key);
+              env.set(stmt.valVar, iterable[key]);
+            } else {
+              env.set(stmt.valVar, key);
+            }
             const res = this.execBlock(stmt.body, env, functions);
             if (res.type === "break") {
               if (!res.label || res.label === stmt.label) break;

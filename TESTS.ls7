@@ -230,10 +230,11 @@ END
 ASSERT_EQ objSum 6 "for-each-obj-kv"
 
 objSum2 = 0
-FOR EACH val IN objLoop
-    objSum2 = objSum2 + val
+keysArr = []
+FOR EACH key IN objLoop
+    PUSH keysArr key
 END
-ASSERT_EQ objSum2 6 "for-each-obj-v"
+ASSERT_EQ (JOIN keysArr ",") "a,b,c" "for-each-obj-k"
 
 # WHILE + CONTINUE + BREAK
 i = 1
