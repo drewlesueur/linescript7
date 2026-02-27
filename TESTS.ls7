@@ -1,0 +1,164 @@
+# LineScript7 test suite
+failures = 0
+
+FUNC ASSERT_EQ actual expected label
+    IF actual IS expected
+        # ok
+    ELSE
+        failures = failures + 1
+        PRINT STRING FAIL: 
+        PRINT label
+        PRINT STRING expected=
+        PRINT expected
+        PRINT STRING actual=
+        PRINT actual
+    END
+END
+
+FUNC ASSERT_TRUE cond label
+    IF cond
+        # ok
+    ELSE
+        failures = failures + 1
+        PRINT STRING FAIL: 
+        PRINT label
+    END
+END
+
+# Arithmetic and precedence
+calc1 = 1 + 2 * 3
+calc2 = (1 + 2) * 3
+ASSERT_EQ calc1 7 "calc1"
+ASSERT_EQ calc2 9 "calc2"
+
+# Strings
+name = "Ada"
+first = SUBSTR name 1 2
+ASSERT_EQ first "Ad" "substr-basic"
+sliceStr = SLICE "abc" 2 10
+ASSERT_EQ sliceStr "bc" "slice-out-of-range-string"
+sliceStr2 = SLICE "abc" 10 2
+ASSERT_EQ sliceStr2 "" "slice-empty-string"
+trimmed = TRIM "  padded  "
+ASSERT_EQ trimmed "padded" "trim"
+starts = STARTS_WITH name "Ad"
+ends = ENDS_WITH name "da"
+ASSERT_TRUE starts "starts-with"
+ASSERT_TRUE ends "ends-with"
+
+# Arrays and indexing (1-based)
+numbers = [1 2 3]
+ASSERT_EQ numbers[1] 1 "array-index-1"
+numbers[3] = 99
+ASSERT_EQ numbers[3] 99 "array-index-assign"
+missingIndex = numbers[10]
+ASSERT_EQ missingIndex NULL "array-missing-index-null"
+
+sliceArr = SLICE numbers 2 10
+ASSERT_EQ (JOIN sliceArr ",") "2,99" "slice-out-of-range-array"
+sliceArr2 = SLICE numbers 10 2
+ASSERT_EQ (JOIN sliceArr2 ",") "" "slice-empty-array"
+
+# Objects and missing keys
+user = { name: name age: 30 }
+user.city = "Phoenix"
+ASSERT_EQ user.city "Phoenix" "object-dot"
+missingKey = user.zip
+ASSERT_EQ missingKey NULL "object-missing-key-null"
+
+# LEN
+ASSERT_EQ (LEN numbers) 3 "len-array"
+ASSERT_EQ (LEN name) 3 "len-string"
+ASSERT_EQ (LEN user) 3 "len-object"
+
+# Boolean logic and comparisons
+active = TRUE
+age = 30
+canVote = FALSE
+IF active AND age >= 18
+    canVote = TRUE
+END
+ASSERT_TRUE canVote "bool-and-compare"
+
+grade = "B"
+honors = FALSE
+IF grade IS "A" OR grade IS "B"
+    honors = TRUE
+END
+ASSERT_TRUE honors "bool-or-is"
+
+# IF / ELSE
+score = 8
+IF score > 10
+    letter = "A"
+ELSE IF score > 7
+    letter = "B"
+ELSE
+    letter = "C"
+END
+ASSERT_EQ letter "B" "if-else"
+
+# NULL checks
+missing = NULL
+IF missing IS NULL
+    missing = "fallback"
+END
+ASSERT_EQ missing "fallback" "null-guard"
+
+# Functions
+FUNC ADD a b
+    RETURN a + b
+END
+sum = ADD 2 3
+ASSERT_EQ sum 5 "func-return"
+
+FUNC DOUBLE n
+    n * 2
+END
+twice = DOUBLE 7
+ASSERT_EQ twice 14 "func-implicit-return"
+
+# FOR and FOR EACH
+total = 0
+FOR i FROM 1 TO 3
+    total = total + i
+END
+ASSERT_EQ total 6 "for-loop"
+
+FOR EACH idx val IN numbers
+    numbers[idx] = val + 1
+END
+ASSERT_EQ (JOIN numbers ",") "2,3,100" "for-each-index"
+
+# WHILE + CONTINUE + BREAK
+i = 1
+sumWhile = 0
+WHILE i <= 5
+    IF i IS 2
+        i = i + 1
+        CONTINUE
+    END
+    IF i IS 4
+        BREAK
+    END
+    sumWhile = sumWhile + i
+    i = i + 1
+END
+ASSERT_EQ sumWhile 4 "while-continue-break"
+
+# SPLIT / JOIN
+words = SPLIT "one,two,three" ","
+ASSERT_EQ (JOIN words "-") "one-two-three" "split-join"
+
+# Stack application (pipeline)
+PRINT STRING stack-test
+"Drew"
+SLICE 1 2
+UPPER
+
+IF failures IS 0
+    PRINT STRING ALL TESTS PASSED
+ELSE
+    PRINT STRING FAILURES:
+    PRINT failures
+END
