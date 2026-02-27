@@ -288,6 +288,22 @@ ASSERT_EQ second "World" "stack-check2"
 
 ASSERT_EQ TIMES2 3 6 "optional-return"
 
+IF TRUE
+    "yay"
+ELSE
+    "nay"
+END
+ASSERT_EQ IT "yay" "stack-in-if"
+
+
+val = IF TRUE
+    "yay"
+ELSE
+    "nay"
+END
+ASSERT_EQ val "yay" "val-in-if"
+
+
 
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
