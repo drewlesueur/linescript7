@@ -355,6 +355,20 @@ ASSERT_EQ trimmed "ok" "stack-across-func"
 GREET
     "Hello, " IT; CONCAT
 END
+GREET1 name
+    "Hello, " name; CONCAT
+END
+GREET1_ALT name
+    "Hello, " name
+    CONCAT
+END
+GREET1_ALT2 name
+    "Hello, "
+    CONCAT name
+END
+GREET1_ALT3 name
+    "Hello, "; CONCAT name
+END
 greeting = GREET "Drew"
 ASSERT_EQ greeting "Hello, Drew" "stack-across-function"
 
@@ -364,6 +378,12 @@ ASSERT_EQ v 5 "arity-test"
 # fails because no specific arity
 # ASSERT_EQ GREET "Mr." "Hello, Mr." "stack-across-function"
 ASSERT_EQ (GREET "Mr.") "Hello, Mr." "stack-across-function"
+ASSERT_EQ GREET1 "Mr." "Hello, Mr." "stack-across-function"
+ASSERT_EQ GREET1_ALT "Mr." "Hello, Mr." "stack-across-function"
+ASSERT_EQ GREET1_ALT2 "Mr." "Hello, Mr." "stack-across-function"
+ASSERT_EQ GREET1_ALT3 "Mr." "Hello, Mr." "stack-across-function"
+
+
 
 foo[idx][key].bar = 200
 ASSERT_EQ foo[idx][key].bar 200 "nested"
