@@ -197,6 +197,9 @@ class Parser {
   }
 
   parseStatement() {
+    if (this.check("IDENT") && this.lexer.peek(1).type === "OP" && this.lexer.peek(1).value === ":") {
+      return this.parseLabeledStatement();
+    }
     if (this.matchKeyword("IF")) return this.parseIf();
     if (this.matchKeyword("WHILE")) return this.parseWhile();
     if (this.matchKeyword("FOR")) return this.parseFor();
@@ -206,13 +209,22 @@ class Parser {
       this.consumeEnd();
       return { type: "Return", expr };
     }
-    if (this.matchKeyword("BREAK")) {
+    if (this.matchKeyword("GOTO")) {
+      const label = this.expectIdent();
       this.consumeEnd();
-      return { type: "Break" };
+      return { type: "Goto", label };
+    }
+    if (this.matchKeyword("BREAK")) {
+      let label = null;
+      if (this.check("IDENT")) label = this.expectIdent();
+      this.consumeEnd();
+      return { type: "Break", label };
     }
     if (this.matchKeyword("CONTINUE")) {
+      let label = null;
+      if (this.check("IDENT")) label = this.expectIdent();
       this.consumeEnd();
-      return { type: "Continue" };
+      return { type: "Continue", label };
     }
 
     const expr = this.parseExpression();
@@ -249,15 +261,23 @@ class Parser {
   }
 
   parseWhile() {
+    return this.parseWhileWithLabel(null);
+  }
+
+  parseWhileWithLabel(label) {
     const cond = this.parseExpression();
     this.consumeEnd();
     const body = this.parseBlock(["END"]);
     this.expectKeyword("END");
     this.consumeEnd();
-    return { type: "While", cond, body };
+    return { type: "While", cond, body, label };
   }
 
   parseFor() {
+    return this.parseForWithLabel(null);
+  }
+
+  parseForWithLabel(label) {
     if (this.matchKeyword("EACH")) {
       const first = this.expectIdent();
       let second = null;
@@ -274,6 +294,7 @@ class Parser {
         valVar: second ? second : first,
         iterable,
         body,
+        label,
       };
     }
 
@@ -286,7 +307,16 @@ class Parser {
     const body = this.parseBlock(["END"]);
     this.expectKeyword("END");
     this.consumeEnd();
-    return { type: "For", name, start, end, body };
+    return { type: "For", name, start, end, body, label };
+  }
+
+  parseLabeledStatement() {
+    const label = this.expectIdent();
+    this.expect("OP", ":");
+    if (this.matchKeyword("FOR")) return this.parseForWithLabel(label);
+    if (this.matchKeyword("WHILE")) return this.parseWhileWithLabel(label);
+    this.consumeEnd();
+    return { type: "Label", label };
   }
 
   parseFunc() {
@@ -613,7 +643,8 @@ class Interpreter {
       }
     }
 
-    this.execBlock(program.body, globalEnv, functions);
+    const topRes = this.execBlock(program.body, globalEnv, functions);
+    if (topRes && topRes.type === "goto") throw new Error(`Unknown label: ${topRes.label}`);
     return { env: globalEnv, output: this.output.slice() };
   }
 
@@ -636,12 +667,28 @@ class Interpreter {
 
   execBlock(stmts, env, functions) {
     let lastExpr = null;
-    for (const stmt of stmts) {
+    const labelMap = new Map();
+    for (let i = 0; i < stmts.length; i += 1) {
+      const stmt = stmts[i];
+      if (stmt.type === "Label") labelMap.set(stmt.label, i);
+      if (stmt.type === "For" || stmt.type === "ForEach" || stmt.type === "While") {
+        if (stmt.label) labelMap.set(stmt.label, i);
+      }
+    }
+    for (let i = 0; i < stmts.length; i += 1) {
+      const stmt = stmts[i];
       const res = this.exec(stmt, env, functions);
       if (res && res.type) {
-        if (res.type === "return") return { type: "return", value: res.value };
-        if (res.type === "break") return { type: "break" };
-        if (res.type === "continue") return { type: "continue" };
+        if (res.type === "return") return res;
+        if (res.type === "break") return res;
+        if (res.type === "continue") return res;
+        if (res.type === "goto") {
+          if (labelMap.has(res.label)) {
+            i = labelMap.get(res.label);
+            continue;
+          }
+          return res;
+        }
       }
       if (stmt.type === "ExprStmt") lastExpr = res;
     }
@@ -677,8 +724,14 @@ class Interpreter {
       case "While": {
         while (this.isTruthy(this.evalExpr(stmt.cond, env, functions))) {
           const res = this.execBlock(stmt.body, env, functions);
-          if (res.type === "break") break;
-          if (res.type === "continue") continue;
+          if (res.type === "break") {
+            if (!res.label || res.label === stmt.label) break;
+            return res;
+          }
+          if (res.type === "continue") {
+            if (!res.label || res.label === stmt.label) continue;
+            return res;
+          }
           if (res.type === "return") return res;
         }
         return null;
@@ -690,8 +743,14 @@ class Interpreter {
         for (let i = start; step > 0 ? i <= end : i >= end; i += step) {
           env.set(stmt.name, i);
           const res = this.execBlock(stmt.body, env, functions);
-          if (res.type === "break") break;
-          if (res.type === "continue") continue;
+          if (res.type === "break") {
+            if (!res.label || res.label === stmt.label) break;
+            return res;
+          }
+          if (res.type === "continue") {
+            if (!res.label || res.label === stmt.label) continue;
+            return res;
+          }
           if (res.type === "return") return res;
         }
         return null;
@@ -703,8 +762,14 @@ class Interpreter {
             if (stmt.keyVar) env.set(stmt.keyVar, i + 1);
             env.set(stmt.valVar, iterable[i]);
             const res = this.execBlock(stmt.body, env, functions);
-            if (res.type === "break") break;
-            if (res.type === "continue") continue;
+            if (res.type === "break") {
+              if (!res.label || res.label === stmt.label) break;
+              return res;
+            }
+            if (res.type === "continue") {
+              if (!res.label || res.label === stmt.label) continue;
+              return res;
+            }
             if (res.type === "return") return res;
           }
         } else if (iterable && typeof iterable === "object") {
@@ -712,8 +777,14 @@ class Interpreter {
             if (stmt.keyVar) env.set(stmt.keyVar, key);
             env.set(stmt.valVar, iterable[key]);
             const res = this.execBlock(stmt.body, env, functions);
-            if (res.type === "break") break;
-            if (res.type === "continue") continue;
+            if (res.type === "break") {
+              if (!res.label || res.label === stmt.label) break;
+              return res;
+            }
+            if (res.type === "continue") {
+              if (!res.label || res.label === stmt.label) continue;
+              return res;
+            }
             if (res.type === "return") return res;
           }
         }
@@ -723,10 +794,14 @@ class Interpreter {
         return null;
       case "Return":
         return { type: "return", value: this.evalExpr(stmt.expr, env, functions) };
+      case "Goto":
+        return { type: "goto", label: stmt.label };
       case "Break":
-        return { type: "break" };
+        return { type: "break", label: stmt.label || null };
       case "Continue":
-        return { type: "continue" };
+        return { type: "continue", label: stmt.label || null };
+      case "Label":
+        return null;
       default:
         throw new Error(`Unknown statement: ${stmt.type}`);
     }
@@ -809,6 +884,7 @@ class Interpreter {
       local.define(fn.node.params[i], args[i]);
     }
     const res = this.execBlock(fn.node.body, local, functions);
+    if (res.type === "goto") throw new Error(`Unknown label: ${res.label}`);
     if (res.type === "return") return res.value;
     return res.value;
   }

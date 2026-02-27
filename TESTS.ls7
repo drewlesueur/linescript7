@@ -154,6 +154,38 @@ WHILE i <= 5
 END
 ASSERT_EQ sumWhile 4 "while-continue-break"
 
+# Labeled BREAK / CONTINUE
+sumLabel = 0
+OUTER: FOR i FROM 1 TO 3
+    INNER: FOR j FROM 1 TO 3
+        IF i IS 2 AND j IS 2
+            BREAK OUTER
+        END
+        sumLabel = sumLabel + 1
+    END
+END
+ASSERT_EQ sumLabel 4 "labeled-break"
+
+sumLabel2 = 0
+OUT: FOR i FROM 1 TO 3
+    FOR j FROM 1 TO 3
+        IF j IS 2
+            CONTINUE OUT
+        END
+        sumLabel2 = sumLabel2 + 1
+    END
+END
+ASSERT_EQ sumLabel2 3 "labeled-continue"
+
+# GOTO
+count = 0
+START:
+count = count + 1
+IF count < 3
+    GOTO START
+END
+ASSERT_EQ count 3 "goto-basic"
+
 # SPLIT / JOIN
 words = SPLIT "one,two,three" ","
 ASSERT_EQ (JOIN words "-") "one-two-three" "split-join"
