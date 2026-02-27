@@ -958,7 +958,10 @@ class Interpreter {
       return;
     }
     if (target.type === "Member") {
-      const obj = this.evalExpr(target.object, env, functions);
+      let obj = this.evalExpr(target.object, env, functions);
+      if (!obj || typeof obj !== "object") {
+        obj = this.ensureObjectForTarget(target.object, env, functions);
+      }
       if (!obj || typeof obj !== "object") throw new Error("Invalid member assignment");
       obj[target.property] = value;
       return;
@@ -974,6 +977,53 @@ class Interpreter {
       return;
     }
     throw new Error("Invalid assignment target");
+  }
+
+  ensureObjectForTarget(target, env, functions) {
+    if (target.type === "Identifier") {
+      let obj = env.get(target.name);
+      if (!obj || typeof obj !== "object") {
+        obj = {};
+        env.set(target.name, obj);
+      }
+      return obj;
+    }
+    if (target.type === "Member") {
+      let parent = this.evalExpr(target.object, env, functions);
+      if (!parent || typeof parent !== "object") {
+        parent = this.ensureObjectForTarget(target.object, env, functions);
+      }
+      if (!parent || typeof parent !== "object") return null;
+      let obj = parent[target.property];
+      if (!obj || typeof obj !== "object") {
+        obj = {};
+        parent[target.property] = obj;
+      }
+      return obj;
+    }
+    if (target.type === "Index") {
+      let arr = this.evalExpr(target.object, env, functions);
+      if (!Array.isArray(arr)) {
+        arr = [];
+        if (target.object.type === "Identifier") {
+          env.set(target.object.name, arr);
+        } else if (target.object.type === "Member") {
+          const parent = this.ensureObjectForTarget(target.object.object, env, functions);
+          if (parent && typeof parent === "object") parent[target.object.property] = arr;
+        }
+      }
+      const idx = this.toNumber(this.evalExpr(target.index, env, functions));
+      const i = Math.floor(idx) - 1;
+      if (i < 0) return arr;
+      while (arr.length <= i) arr.push(null);
+      let obj = arr[i];
+      if (!obj || typeof obj !== "object") {
+        obj = {};
+        arr[i] = obj;
+      }
+      return obj;
+    }
+    return null;
   }
 
   evalBinary(op, left, right) {
