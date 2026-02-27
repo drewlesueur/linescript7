@@ -154,6 +154,17 @@ END
 INC_GLOBAL
 ASSERT_EQ gVal 5 "func-global-update"
 
+# Functions can read from caller scope (dynamic read)
+FUNC READ_OUTER
+    RETURN outerRead
+END
+FUNC SET_AND_READ
+    outerRead = "hi"
+    RETURN READ_OUTER
+END
+readVal = SET_AND_READ
+ASSERT_EQ readVal "hi" "func-dynamic-read"
+
 # FOR and FOR EACH
 total = 0
 FOR i FROM 1 TO 3
