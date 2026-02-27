@@ -352,6 +352,13 @@ END
 trimmed = TRIM_ME
 ASSERT_EQ trimmed "ok" "stack-across-func"
 
+GREET
+    "Hello, " IT; CONCAT
+END
+
+greeting = GREET "Drew"
+
+ASSERT_EQ greeting "Hello, Drew" "stack-across-function"
 
 foo[idx][key].bar = 200
 ASSERT_EQ foo[idx][key].bar 200 "nested"

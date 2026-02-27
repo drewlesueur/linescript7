@@ -225,6 +225,7 @@ class Parser {
   constructor(lexer, functionArity) {
     this.lexer = lexer;
     this.functionArity = functionArity;
+    this.nonGreedyArity0 = new Set(["IT", "SWAP"]);
   }
 
   parseProgram() {
@@ -454,9 +455,15 @@ class Parser {
       if (this.functionArity[name] !== undefined) {
         const arity = this.functionArity[name];
         const args = [];
-        for (let i = 0; i < arity; i += 1) {
-          if (this.isArgBoundary()) break;
-          args.push(this.parseExpression(9));
+        if (arity === 0 && !this.nonGreedyArity0.has(name)) {
+          while (!this.isArgBoundary()) {
+            args.push(this.parseExpression(9));
+          }
+        } else {
+          for (let i = 0; i < arity; i += 1) {
+            if (this.isArgBoundary()) break;
+            args.push(this.parseExpression(9));
+          }
         }
         return this.parsePostfix({ type: "Call", name, args });
       }
@@ -637,6 +644,7 @@ class Interpreter {
   constructor(options = {}) {
     this.output = [];
     this.stack = [];
+    this.stackFrameBases = [];
     this.random = options.random || (() => Math.random());
     this.builtins = this.createBuiltins();
   }
@@ -663,7 +671,7 @@ class Interpreter {
       SPLIT: { arity: 2, fn: ([s, delim]) => this.toString(s).split(this.toString(delim)) },
       JOIN: { arity: 2, fn: ([arr, delim]) => Array.isArray(arr) ? arr.map((v) => this.toString(v)).join(this.toString(delim)) : "" },
       UPPER: { arity: 1, fn: ([s]) => this.toString(s).toUpperCase() },
-      CONCAT: { arity: 2, fn: ([a, b]) => this.toString(a) + this.toString(b) },
+      CONCAT: { arity: 2, stackOptional: true, fn: ([a, b]) => this.toString(a || "") + this.toString(b || "") },
       PLUS: { arity: 2, fn: ([a, b]) => this.evalBinary("+", a, b) },
       MINUS: { arity: 2, fn: ([a, b]) => this.evalBinary("-", a, b) },
       TIMES: { arity: 2, fn: ([a, b]) => this.evalBinary("*", a, b) },
@@ -679,7 +687,11 @@ class Interpreter {
       POP: { arity: 1, fn: ([arr]) => Array.isArray(arr) && arr.length ? arr.pop() : null },
       UNSHIFT: { arity: 2, fn: ([arr, v]) => { if (Array.isArray(arr)) arr.unshift(v); return arr.length; } },
       SHIFT: { arity: 1, fn: ([arr]) => Array.isArray(arr) && arr.length ? arr.shift() : null },
-      IT: { arity: 0, fn: () => (this.stack.length ? this.stack.pop() : null) },
+      IT: { arity: 0, fn: () => {
+        const base = this.stackFrameBases.length ? this.stackFrameBases[this.stackFrameBases.length - 1] : 0;
+        if (this.stack.length <= base) return null;
+        return this.stack.pop();
+      } },
       SWAP: { arity: 0, fn: () => {
         if (this.stack.length < 2) return null;
         const a = this.stack.pop();
@@ -963,18 +975,30 @@ class Interpreter {
     const fn = functions.get(name);
     if (!fn) throw new Error(`Unknown function: ${name}`);
     const arity = fn.arity;
+    const explicitCount = argsExpr.length;
     const args = argsExpr.map((a) => this.evalExpr(a, env, functions));
+    if (explicitCount > 0 && !fn.fn) {
+      for (const v of args) this.stack.push(v);
+      this.stackFrameBases.push(this.stack.length - args.length);
+    }
+    if (args.length > arity) {
+      if (fn.fn) throw new Error(`Too many args for ${name}`);
+      args.splice(arity);
+    }
     if (args.length < arity) {
       const missing = arity - args.length;
-      if (this.stack.length < missing) throw new Error(`Not enough stack values for ${name}`);
+      const base = this.stackFrameBases.length ? this.stackFrameBases[this.stackFrameBases.length - 1] : 0;
+      const available = this.stack.length - base;
+      if (available < missing && !fn.stackOptional) throw new Error(`Not enough stack values for ${name}`);
       const pulled = [];
-      for (let i = 0; i < missing; i += 1) {
-        pulled.push(this.stack.pop());
-      }
+      const toPull = Math.min(missing, available);
+      for (let i = 0; i < toPull; i += 1) pulled.push(this.stack.pop());
       pulled.reverse();
       args.unshift(...pulled);
+      if (missing > toPull && fn.stackOptional) {
+        for (let i = 0; i < missing - toPull; i += 1) args.unshift(null);
+      }
     }
-    if (args.length > arity) throw new Error(`Too many args for ${name}`);
 
     if (fn.fn) return fn.fn(args);
     const local = new Environment(this.globalEnv);
@@ -982,6 +1006,7 @@ class Interpreter {
       local.define(fn.node.params[i], args[i]);
     }
     const res = this.execBlock(fn.node.body, local, functions);
+    if (explicitCount > 0) this.stackFrameBases.pop();
     if (res.type === "goto") throw new Error(`Unknown label: ${res.label}`);
     if (res.type === "return") return res.value;
     return res.value;
