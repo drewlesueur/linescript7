@@ -670,6 +670,28 @@ class Interpreter {
       ENDS_WITH: { arity: 2, fn: ([s, suffix]) => this.toString(s).endsWith(this.toString(suffix)) },
       SPLIT: { arity: 2, fn: ([s, delim]) => this.toString(s).split(this.toString(delim)) },
       JOIN: { arity: 2, fn: ([arr, delim]) => Array.isArray(arr) ? arr.map((v) => this.toString(v)).join(this.toString(delim)) : "" },
+      AT: { arity: 2, fn: ([obj, key]) => {
+        if (Array.isArray(obj)) {
+          if (this.isNumericIndexValue(key)) {
+            const i = Math.floor(this.toNumber(key)) - 1;
+            if (i < 0 || i >= obj.length) return null;
+            return obj[i] === undefined ? null : obj[i];
+          }
+          const k = this.toString(key);
+          return Object.prototype.hasOwnProperty.call(obj, k) ? obj[k] : null;
+        }
+        if (typeof obj === "string") {
+          if (!this.isNumericIndexValue(key)) return null;
+          const i = Math.floor(this.toNumber(key)) - 1;
+          if (i < 0 || i >= obj.length) return null;
+          return obj[i];
+        }
+        if (obj && typeof obj === "object") {
+          const k = this.toString(key);
+          return Object.prototype.hasOwnProperty.call(obj, k) ? obj[k] : null;
+        }
+        return null;
+      } },
       UPPER: { arity: 1, fn: ([s]) => this.toString(s).toUpperCase() },
       CONCAT: { arity: 2, stackOptional: true, fn: ([a, b]) => this.toString(a || "") + this.toString(b || "") },
       PLUS: { arity: 2, fn: ([a, b]) => this.evalBinary("+", a, b) },
