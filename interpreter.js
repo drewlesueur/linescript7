@@ -272,10 +272,15 @@ class Parser {
     }
     if (this.matchKeyword("GLOBAL")) {
       const name = this.expectIdent();
-      this.expect("OP", "=");
+      let op = "=";
+      if (this.check("OP") && ["=", "+=", "-=", "*=", "/="].includes(this.lexer.peek().value)) {
+        op = this.lexer.next().value;
+      } else {
+        this.expect("OP", "=");
+      }
       const value = this.parseExpression();
       this.consumeEnd();
-      return { type: "GlobalAssign", name, value };
+      return { type: "GlobalAssign", name, value, op };
     }
 
     const expr = this.parseExpression();
@@ -832,8 +837,14 @@ class Interpreter {
       case "GlobalAssign": {
         const value = this.evalExpr(stmt.value, env, functions);
         if (!this.globalEnv) throw new Error("Global environment not initialized");
-        this.globalEnv.set(stmt.name, value);
-        return value;
+        let out = value;
+        if (stmt.op && stmt.op !== "=") {
+          const current = this.globalEnv.get(stmt.name);
+          const op = stmt.op.slice(0, -1);
+          out = this.evalBinary(op, current, value);
+        }
+        this.globalEnv.set(stmt.name, out);
+        return out;
       }
       case "ExprStmt": {
         const value = this.evalExpr(stmt.expr, env, functions);

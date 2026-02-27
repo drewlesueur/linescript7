@@ -5,7 +5,7 @@ ASSERT_EQ actual expected label
     IF actual IS expected
         # ok
     ELSE
-        failures = failures + 1
+        GLOBAL failures += 1
         PRINT STRING FAIL: 
         PRINT label
         PRINT STRING expected=
