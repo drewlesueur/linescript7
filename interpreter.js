@@ -999,6 +999,11 @@ class Interpreter {
     const arity = fn.arity;
     const explicitCount = argsExpr.length;
     const args = argsExpr.map((a) => this.evalExpr(a, env, functions));
+    if (fn.fn && explicitCount > 0 && (name === "PUSH" || name === "UNSHIFT")) {
+      if (!Array.isArray(args[0])) {
+        args[0] = this.ensureArrayForTarget(argsExpr[0], env, functions);
+      }
+    }
     if (explicitCount > 0 && !fn.fn) {
       for (const v of args) this.stack.push(v);
       this.stackFrameBases.push(this.stack.length - args.length);

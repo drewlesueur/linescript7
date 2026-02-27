@@ -385,6 +385,13 @@ ASSERT_EQ GREET1_ALT3 "Mr." "Hello, Mr." "stack-across-function"
 
 
 
+FOR i FROM 1 TO 5
+    PUSH myVals i
+END
+ASSERT_EQ myVals[5] 5 "FOR-test"
+
+
+
 foo[idx][key].bar = 200
 ASSERT_EQ foo[idx][key].bar 200 "nested"
 
