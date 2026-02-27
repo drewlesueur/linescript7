@@ -898,7 +898,7 @@ class Interpreter {
     if (args.length > arity) throw new Error(`Too many args for ${name}`);
 
     if (fn.fn) return fn.fn(args);
-    const local = new Environment(env);
+    const local = new Environment(this.globalEnv);
     for (let i = 0; i < fn.node.params.length; i += 1) {
       local.define(fn.node.params[i], args[i]);
     }

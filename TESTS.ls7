@@ -163,7 +163,15 @@ FUNC SET_AND_READ
     RETURN READ_OUTER
 END
 readVal = SET_AND_READ
-ASSERT_EQ readVal "hi" "func-dynamic-read"
+ASSERT_EQ readVal NULL "func-dynamic-read"
+
+# Functions can read from global scope
+GLOBAL gRead = "global"
+FUNC READ_GLOBAL
+    RETURN gRead
+END
+gReadVal = READ_GLOBAL
+ASSERT_EQ gReadVal "global" "func-global-read"
 
 # FOR and FOR EACH
 total = 0
