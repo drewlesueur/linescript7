@@ -507,6 +507,7 @@ class Parser {
     return expr;
   }
 
+
   isLValue(expr) {
     return expr.type === "Identifier" || expr.type === "Member" || expr.type === "Index";
   }
