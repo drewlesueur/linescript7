@@ -692,6 +692,24 @@ class Interpreter {
         }
         return null;
       } },
+      SETAT: { arity: 3, fn: ([obj, key, value]) => {
+        if (Array.isArray(obj)) {
+          if (!this.isNumericIndexValue(key)) {
+            obj[this.toString(key)] = value;
+            return value;
+          }
+          const i = Math.floor(this.toNumber(key)) - 1;
+          if (i < 0) throw new Error("Index must be >= 1");
+          while (obj.length <= i) obj.push(null);
+          obj[i] = value;
+          return value;
+        }
+        if (obj && typeof obj === "object") {
+          obj[this.toString(key)] = value;
+          return value;
+        }
+        throw new Error("SETAT expects array or object");
+      } },
       UPPER: { arity: 1, fn: ([s]) => this.toString(s).toUpperCase() },
       CONCAT: { arity: 2, stackOptional: true, fn: ([a, b]) => this.toString(a || "") + this.toString(b || "") },
       PLUS: { arity: 2, fn: ([a, b]) => this.evalBinary("+", a, b) },

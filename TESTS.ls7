@@ -390,7 +390,12 @@ FOR i FROM 1 TO 5
 END
 ASSERT_EQ myVals[5] 5 "FOR-test"
 
-
+arr2 = [10 20 30]
+SETAT arr2 2 99
+ASSERT_EQ arr2[2] 99 "setat-array"
+obj2 = { name: "Ada" }
+SETAT obj2 "city" "NYC"
+ASSERT_EQ obj2.city "NYC" "setat-object"
 
 foo[idx][key].bar = 200
 ASSERT_EQ foo[idx][key].bar 200 "nested"
