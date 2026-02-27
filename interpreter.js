@@ -83,7 +83,7 @@ class Lexer {
       }
 
       const two = s.slice(this.pos, this.pos + 2);
-      if ([">=", "<=", "==", "!="].includes(two)) {
+      if ([">=", "<=", "==", "!=", "+=", "-=", "*=", "/="].includes(two)) {
         this.tokens.push({ type: "OP", value: two });
         this.pos += 2;
         continue;
@@ -278,11 +278,12 @@ class Parser {
     }
 
     const expr = this.parseExpression();
-    if (this.match("OP", "=")) {
+    if (this.check("OP") && ["=", "+=", "-=", "*=", "/="].includes(this.lexer.peek().value)) {
+      const op = this.lexer.next().value;
       if (!this.isLValue(expr)) throw new Error("Invalid assignment target");
       const value = this.parseExpression();
       this.consumeEnd();
-      return { type: "Assign", target: expr, value };
+      return { type: "Assign", target: expr, value, op };
     }
     this.consumeEnd();
     return { type: "ExprStmt", expr };
@@ -747,7 +748,12 @@ class Interpreter {
   exec(stmt, env, functions) {
     switch (stmt.type) {
       case "Assign": {
-        const value = this.evalExpr(stmt.value, env, functions);
+        let value = this.evalExpr(stmt.value, env, functions);
+        if (stmt.op && stmt.op !== "=") {
+          const current = this.evalExpr(stmt.target, env, functions);
+          const op = stmt.op.slice(0, -1);
+          value = this.evalBinary(op, current, value);
+        }
         this.assign(stmt.target, value, env, functions);
         return value;
       }

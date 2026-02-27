@@ -30,6 +30,23 @@ calc1 = 1 + 2 * 3
 calc2 = (1 + 2) * 3
 ASSERT_EQ calc1 7 "calc1"
 ASSERT_EQ calc2 9 "calc2"
+op1 = 10
+op1 += 5
+ASSERT_EQ op1 15 "plus-equals"
+op2 = 20
+op2 -= 3
+ASSERT_EQ op2 17 "minus-equals"
+op3 = 6
+op3 *= 4
+ASSERT_EQ op3 24 "times-equals"
+op4 = 20
+op4 /= 5
+ASSERT_EQ op4 4 "divide-equals"
+obj = { count: 1 }
+obj.count += 2
+ASSERT_EQ obj.count 3 "plus-equals-member"
+foo.bar += 1
+ASSERT_EQ foo.bar 1 "plus-equals-member-create"
 
 # Strings
 name = "Ada"
