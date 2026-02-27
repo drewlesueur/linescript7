@@ -302,6 +302,16 @@ ELSE
 END
 ASSERT_EQ IT "yay" "stack-in-if"
 
+numbers = [1 2 3]
+numbers[1] = 100
+ASSERT_EQ numbers[1] 100 "setting-index"
+index = 2
+numbers[index + 1] = 300
+ASSERT_EQ numbers[3] 300 "setting-index-dynamic"
+
+foo.bar.baz = "hi"
+ASSERT_EQ foo.bar.baz "hi" "assign-nested"
+
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
 ELSE
