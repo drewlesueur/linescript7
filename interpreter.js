@@ -906,16 +906,20 @@ class Interpreter {
       }
       case "Index": {
         const obj = this.evalExpr(expr.object, env, functions);
-        const idx = this.toNumber(this.evalExpr(expr.index, env, functions));
+        const idxVal = this.evalExpr(expr.index, env, functions);
         if (Array.isArray(obj)) {
-          const i = Math.floor(idx) - 1;
+          const i = Math.floor(this.toNumber(idxVal)) - 1;
           if (i < 0 || i >= obj.length) return null;
           return obj[i] === undefined ? null : obj[i];
         }
         if (typeof obj === "string") {
-          const i = Math.floor(idx) - 1;
+          const i = Math.floor(this.toNumber(idxVal)) - 1;
           if (i < 0 || i >= obj.length) return null;
           return obj[i];
+        }
+        if (obj && typeof obj === "object") {
+          const key = this.toString(idxVal);
+          return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : null;
         }
         return null;
       }
@@ -968,15 +972,32 @@ class Interpreter {
     }
     if (target.type === "Index") {
       let obj = this.evalExpr(target.object, env, functions);
-      const idx = this.toNumber(this.evalExpr(target.index, env, functions));
-      if (!Array.isArray(obj)) {
-        obj = this.ensureArrayForTarget(target.object, env, functions);
+      const idxVal = this.evalExpr(target.index, env, functions);
+      if (Array.isArray(obj)) {
+        const i = Math.floor(this.toNumber(idxVal)) - 1;
+        if (i < 0) throw new Error("Index must be >= 1");
+        while (obj.length <= i) obj.push(null);
+        obj[i] = value;
+        return;
       }
-      if (!Array.isArray(obj)) throw new Error("Index assignment expects array");
-      const i = Math.floor(idx) - 1;
-      if (i < 0) throw new Error("Index must be >= 1");
-      while (obj.length <= i) obj.push(null);
-      obj[i] = value;
+      if (obj && typeof obj === "object") {
+        const key = this.toString(idxVal);
+        obj[key] = value;
+        return;
+      }
+      if (typeof idxVal === "number" && Number.isFinite(idxVal)) {
+        obj = this.ensureArrayForTarget(target.object, env, functions);
+        if (!Array.isArray(obj)) throw new Error("Index assignment expects array");
+        const i = Math.floor(this.toNumber(idxVal)) - 1;
+        if (i < 0) throw new Error("Index must be >= 1");
+        while (obj.length <= i) obj.push(null);
+        obj[i] = value;
+        return;
+      }
+      obj = this.ensureObjectForTarget(target.object, env, functions);
+      if (!obj || typeof obj !== "object") throw new Error("Invalid index assignment");
+      const key = this.toString(idxVal);
+      obj[key] = value;
       return;
     }
     throw new Error("Invalid assignment target");
