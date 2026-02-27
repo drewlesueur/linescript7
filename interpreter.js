@@ -567,8 +567,8 @@ class Interpreter {
         if (!Array.isArray(arr)) return 0;
         return arr.reduce((sum, v) => sum + this.toNumber(v), 0);
       } },
-      SUBSTR: { arity: 3, fn: ([s, start, len]) => this.sliceValue(s, start, len) },
-      SLICE: { arity: 3, fn: ([s, start, len]) => this.sliceValue(s, start, len) },
+      SUBSTR: { arity: 3, fn: ([s, start, len]) => this.substrValue(s, start, len) },
+      SLICE: { arity: 3, fn: ([s, start, end]) => this.sliceRange(s, start, end) },
       STRING: { arity: 1, fn: ([s]) => this.toString(s) },
       TRIM: { arity: 1, fn: ([s]) => this.toString(s).trim() },
       STARTS_WITH: { arity: 2, fn: ([s, prefix]) => this.toString(s).startsWith(this.toString(prefix)) },
@@ -588,6 +588,9 @@ class Interpreter {
       UNSHIFT: { arity: 2, fn: ([arr, v]) => { if (Array.isArray(arr)) arr.unshift(v); return arr.length; } },
       SHIFT: { arity: 1, fn: ([arr]) => Array.isArray(arr) && arr.length ? arr.shift() : null },
       IT: { arity: 0, fn: () => (this.stack.length ? this.stack.pop() : null) },
+      EXEC: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, true) },
+      EXEC2: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, false) },
+      EXEC_COMBINED: { arity: 1, fn: ([cmd]) => this.execCombined(cmd) },
     };
   }
 
@@ -888,19 +891,92 @@ class Interpreter {
     return this.toString(v);
   }
 
-  sliceValue(value, start, len) {
-    const st = Math.max(1, Math.floor(this.toNumber(start)));
-    const ln = Math.max(0, Math.floor(this.toNumber(len)));
+  execCommand(cmd, throwOnNonZero) {
+    const { execSync, spawnSync } = require("child_process");
+    const command = this.toString(cmd);
+    try {
+      const out = execSync(command, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      if (throwOnNonZero) return out;
+      return { stdout: out, stderr: "", code: 0 };
+    } catch (err) {
+      if (throwOnNonZero) {
+        const stderr = err.stderr ? err.stderr.toString("utf8") : "";
+        const message = stderr || err.message || "EXEC failed";
+        throw new Error(message.trim());
+      }
+      const stdout = err.stdout ? err.stdout.toString("utf8") : "";
+      const stderr = err.stderr ? err.stderr.toString("utf8") : "";
+      const code = typeof err.status === "number" ? err.status : 1;
+      return { stdout, stderr, code };
+    }
+  }
+
+  execCombined(cmd) {
+    const { spawnSync } = require("child_process");
+    const command = this.toString(cmd);
+    const res = spawnSync(command, { shell: true, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    if (res.error) throw new Error(res.error.message);
+    const output = `${res.stdout || ""}${res.stderr || ""}`;
+    if (res.status !== 0) {
+      const message = output.trim() || `EXEC_COMBINED failed with code ${res.status}`;
+      throw new Error(message);
+    }
+    return output;
+  }
+
+  substrValue(value, start, len) {
     if (Array.isArray(value)) {
+      const arrLen = value.length;
+      let st = Math.floor(this.toNumber(start));
+      if (st < 0) st = arrLen + st + 1;
+      if (st < 1) st = 1;
+      let ln = Math.floor(this.toNumber(len));
+      if (ln < 0) return value.slice();
+      ln = Math.max(0, ln);
       if (ln <= 0) return [];
       const startIdx = st - 1;
-      if (startIdx >= value.length) return [];
+      if (startIdx >= arrLen) return [];
       return value.slice(startIdx, startIdx + ln);
     }
     const str = this.toString(value);
+    const strLen = str.length;
+    let st = Math.floor(this.toNumber(start));
+    if (st < 0) st = strLen + st + 1;
+    if (st < 1) st = 1;
+    let ln = Math.floor(this.toNumber(len));
+    if (ln < 0) return str;
+    ln = Math.max(0, ln);
     if (ln <= 0) return "";
-    if (st - 1 >= str.length) return "";
+    if (st - 1 >= strLen) return "";
     return str.substring(st - 1, st - 1 + ln);
+  }
+
+  sliceRange(value, start, end) {
+    if (Array.isArray(value)) {
+      const arrLen = value.length;
+      let st = Math.floor(this.toNumber(start));
+      let en = Math.floor(this.toNumber(end));
+      if (st < 0) st = arrLen + st + 1;
+      if (en < 0) en = arrLen + en + 1;
+      if (st < 1) st = 1;
+      if (en > arrLen) en = arrLen;
+      if (en < st) return [];
+      const startIdx = st - 1;
+      const endIdx = en; // slice end is exclusive
+      return value.slice(startIdx, endIdx);
+    }
+    const str = this.toString(value);
+    const strLen = str.length;
+    let st = Math.floor(this.toNumber(start));
+    let en = Math.floor(this.toNumber(end));
+    if (st < 0) st = strLen + st + 1;
+    if (en < 0) en = strLen + en + 1;
+    if (st < 1) st = 1;
+    if (en > strLen) en = strLen;
+    if (en < st) return "";
+    const startIdx = st - 1;
+    const endIdx = en; // substring end is exclusive
+    return str.substring(startIdx, endIdx);
   }
 }
 

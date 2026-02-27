@@ -39,6 +39,10 @@ sliceStr = SLICE "abc" 2 10
 ASSERT_EQ sliceStr "bc" "slice-out-of-range-string"
 sliceStr2 = SLICE "abc" 10 2
 ASSERT_EQ sliceStr2 "" "slice-empty-string"
+sliceStr3 = SLICE "abc" -1 -1
+ASSERT_EQ sliceStr3 "c" "slice-negative-string"
+sliceStr4 = SLICE "abc" 1 -1
+ASSERT_EQ sliceStr4 "abc" "slice-negative-full"
 trimmed = TRIM "  padded  "
 ASSERT_EQ trimmed "padded" "trim"
 starts = STARTS_WITH name "Ad"
@@ -58,6 +62,10 @@ sliceArr = SLICE numbers 2 10
 ASSERT_EQ (JOIN sliceArr ",") "2,99" "slice-out-of-range-array"
 sliceArr2 = SLICE numbers 10 2
 ASSERT_EQ (JOIN sliceArr2 ",") "" "slice-empty-array"
+sliceArr3 = SLICE numbers -1 -1
+ASSERT_EQ (JOIN sliceArr3 ",") "99" "slice-negative-array"
+sliceArr4 = SLICE numbers 1 -1
+ASSERT_EQ (JOIN sliceArr4 ",") "1,2,99" "slice-negative-full-array"
 
 # Objects and missing keys
 user = { name: name age: 30 }
@@ -162,6 +170,20 @@ ASSERT_EQ result "DR" "stack-pipeline"
 "hello"
 popped = IT
 ASSERT_EQ popped "hello" "it-pop"
+
+# EXEC / EXEC2 / EXEC_COMBINED
+execOut = EXEC "printf hello"
+ASSERT_EQ execOut "hello" "exec-stdout"
+
+execRes = EXEC2 "sh -c 'printf out; printf err 1>&2; exit 3'"
+ASSERT_EQ execRes.code 3 "exec2-code"
+ASSERT_EQ execRes.stdout "out" "exec2-stdout"
+ASSERT_EQ execRes.stderr "err" "exec2-stderr"
+
+combined = EXEC_COMBINED "sh -c 'printf out; printf err 1>&2'"
+ASSERT_EQ combined "outerr" "exec-combined"
+
+"howdy"; SLICE 2 4; UPPER; ASSERT_EQ IT "OWD" "semiconolns"
 
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
