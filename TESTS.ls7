@@ -319,6 +319,12 @@ ASSERT_EQ yo[2] "woa" "assign-nested-array"
 someObj["bricks"] = "red"
 ASSERT_EQ someObj.bricks "red" "assign-nested-3"
 
+idx = 10
+key = "smthng"
+
+foo[idx][key].bar = 200
+ASSERT_EQ foo[idx][key].bar 200 "nested"
+
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
 ELSE
