@@ -126,15 +126,15 @@ END
 twice = DOUBLE 7
 ASSERT_EQ twice 14 "func-implicit-return"
 
-# Function updates outer scope
+# Functions cannot update caller scope
 outerVal = 1
 FUNC BUMP
     outerVal = outerVal + 1
 END
 BUMP
-ASSERT_EQ outerVal 2 "func-updates-outer"
+ASSERT_EQ outerVal 1 "func-no-update-outer"
 
-# Nested call updates caller scope
+# Nested call cannot update caller scope
 outerLocal = 5
 FUNC INNER_BUMP
     outerLocal = outerLocal + 3
@@ -144,7 +144,15 @@ FUNC CALLER
     INNER_BUMP
 END
 CALLER
-ASSERT_EQ outerLocal 13 "func-updates-caller-scope"
+ASSERT_EQ outerLocal 5 "func-no-update-caller-scope"
+
+# Functions can update globals only via GLOBAL
+GLOBAL gVal = 1
+FUNC INC_GLOBAL
+    GLOBAL gVal = gVal + 4
+END
+INC_GLOBAL
+ASSERT_EQ gVal 5 "func-global-update"
 
 # FOR and FOR EACH
 total = 0

@@ -226,6 +226,13 @@ class Parser {
       this.consumeEnd();
       return { type: "Continue", label };
     }
+    if (this.matchKeyword("GLOBAL")) {
+      const name = this.expectIdent();
+      this.expect("OP", "=");
+      const value = this.parseExpression();
+      this.consumeEnd();
+      return { type: "GlobalAssign", name, value };
+    }
 
     const expr = this.parseExpression();
     if (this.match("OP", "=")) {
@@ -565,10 +572,6 @@ class Environment {
       this.vars.set(name, value);
       return;
     }
-    if (this.parent && this.parent.has(name)) {
-      this.parent.set(name, value);
-      return;
-    }
     this.vars.set(name, value);
   }
 
@@ -632,6 +635,7 @@ class Interpreter {
     const parser = new Parser(lexer, functionArity);
     const program = parser.parseProgram();
     const globalEnv = new Environment();
+    this.globalEnv = globalEnv;
     const functions = new Map();
 
     for (const [name, def] of Object.entries(this.builtins)) {
@@ -701,6 +705,12 @@ class Interpreter {
       case "Assign": {
         const value = this.evalExpr(stmt.value, env, functions);
         this.assign(stmt.target, value, env, functions);
+        return value;
+      }
+      case "GlobalAssign": {
+        const value = this.evalExpr(stmt.value, env, functions);
+        if (!this.globalEnv) throw new Error("Global environment not initialized");
+        this.globalEnv.set(stmt.name, value);
         return value;
       }
       case "ExprStmt": {
