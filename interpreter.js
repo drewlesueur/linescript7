@@ -908,11 +908,16 @@ class Interpreter {
         const obj = this.evalExpr(expr.object, env, functions);
         const idxVal = this.evalExpr(expr.index, env, functions);
         if (Array.isArray(obj)) {
-          const i = Math.floor(this.toNumber(idxVal)) - 1;
-          if (i < 0 || i >= obj.length) return null;
-          return obj[i] === undefined ? null : obj[i];
+          if (this.isNumericIndexValue(idxVal)) {
+            const i = Math.floor(this.toNumber(idxVal)) - 1;
+            if (i < 0 || i >= obj.length) return null;
+            return obj[i] === undefined ? null : obj[i];
+          }
+          const key = this.toString(idxVal);
+          return Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : null;
         }
         if (typeof obj === "string") {
+          if (!this.isNumericIndexValue(idxVal)) return null;
           const i = Math.floor(this.toNumber(idxVal)) - 1;
           if (i < 0 || i >= obj.length) return null;
           return obj[i];
@@ -974,10 +979,15 @@ class Interpreter {
       let obj = this.evalExpr(target.object, env, functions);
       const idxVal = this.evalExpr(target.index, env, functions);
       if (Array.isArray(obj)) {
-        const i = Math.floor(this.toNumber(idxVal)) - 1;
-        if (i < 0) throw new Error("Index must be >= 1");
-        while (obj.length <= i) obj.push(null);
-        obj[i] = value;
+        if (this.isNumericIndexValue(idxVal)) {
+          const i = Math.floor(this.toNumber(idxVal)) - 1;
+          if (i < 0) throw new Error("Index must be >= 1");
+          while (obj.length <= i) obj.push(null);
+          obj[i] = value;
+          return;
+        }
+        const key = this.toString(idxVal);
+        obj[key] = value;
         return;
       }
       if (obj && typeof obj === "object") {
@@ -985,7 +995,7 @@ class Interpreter {
         obj[key] = value;
         return;
       }
-      if (typeof idxVal === "number" && Number.isFinite(idxVal)) {
+      if (this.isNumericIndexValue(idxVal)) {
         obj = this.ensureArrayForTarget(target.object, env, functions);
         if (!Array.isArray(obj)) throw new Error("Index assignment expects array");
         const i = Math.floor(this.toNumber(idxVal)) - 1;
@@ -1026,26 +1036,47 @@ class Interpreter {
       return obj;
     }
     if (target.type === "Index") {
-      let arr = this.evalExpr(target.object, env, functions);
-      if (!Array.isArray(arr)) {
-        arr = [];
-        if (target.object.type === "Identifier") {
-          env.set(target.object.name, arr);
-        } else if (target.object.type === "Member") {
-          const parent = this.ensureObjectForTarget(target.object.object, env, functions);
-          if (parent && typeof parent === "object") parent[target.object.property] = arr;
+      const idxVal = this.evalExpr(target.index, env, functions);
+      let parent = this.evalExpr(target.object, env, functions);
+      const numeric = this.isNumericIndexValue(idxVal);
+
+      if (!parent || typeof parent !== "object") {
+        if (numeric) parent = this.ensureArrayForTarget(target.object, env, functions);
+        else parent = this.ensureObjectForTarget(target.object, env, functions);
+      }
+
+      if (Array.isArray(parent)) {
+        if (numeric) {
+          const i = Math.floor(this.toNumber(idxVal)) - 1;
+          if (i < 0) return parent;
+          while (parent.length <= i) parent.push(null);
+          let obj = parent[i];
+          if (!obj || typeof obj !== "object") {
+            obj = {};
+            parent[i] = obj;
+          }
+          return obj;
         }
+        const key = this.toString(idxVal);
+        let obj = parent[key];
+        if (!obj || typeof obj !== "object") {
+          obj = {};
+          parent[key] = obj;
+        }
+        return obj;
       }
-      const idx = this.toNumber(this.evalExpr(target.index, env, functions));
-      const i = Math.floor(idx) - 1;
-      if (i < 0) return arr;
-      while (arr.length <= i) arr.push(null);
-      let obj = arr[i];
-      if (!obj || typeof obj !== "object") {
-        obj = {};
-        arr[i] = obj;
+
+      if (parent && typeof parent === "object") {
+        const key = this.toString(idxVal);
+        let obj = parent[key];
+        if (!obj || typeof obj !== "object") {
+          obj = {};
+          parent[key] = obj;
+        }
+        return obj;
       }
-      return obj;
+
+      return null;
     }
     return null;
   }
@@ -1130,6 +1161,17 @@ class Interpreter {
       return Number.isNaN(n) ? 0 : n;
     }
     return 0;
+  }
+
+  isNumericIndexValue(v) {
+    if (typeof v === "number") return Number.isFinite(v);
+    if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed === "") return false;
+      const n = Number(trimmed);
+      return Number.isFinite(n);
+    }
+    return false;
   }
 
   toString(v) {
