@@ -344,6 +344,14 @@ key = "smthng"
 "Hello " IT
 ASSERT_EQ IT "Hello Drew" "IT-on-same-line"
 
+TRIM_ME
+    TRIM
+END
+
+" ok "
+trimmed = TRIM_ME
+ASSERT_EQ trimmed "ok" "stack-across-func"
+
 
 foo[idx][key].bar = 200
 ASSERT_EQ foo[idx][key].bar 200 "nested"
