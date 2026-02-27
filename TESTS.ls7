@@ -126,6 +126,26 @@ END
 twice = DOUBLE 7
 ASSERT_EQ twice 14 "func-implicit-return"
 
+# Function updates outer scope
+outerVal = 1
+FUNC BUMP
+    outerVal = outerVal + 1
+END
+BUMP
+ASSERT_EQ outerVal 2 "func-updates-outer"
+
+# Nested call updates caller scope
+outerLocal = 5
+FUNC INNER_BUMP
+    outerLocal = outerLocal + 3
+END
+FUNC CALLER
+    outerLocal = 10
+    INNER_BUMP
+END
+CALLER
+ASSERT_EQ outerLocal 13 "func-updates-caller-scope"
+
 # FOR and FOR EACH
 total = 0
 FOR i FROM 1 TO 3
