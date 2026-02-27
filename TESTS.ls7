@@ -339,6 +339,12 @@ ASSERT_EQ someObj.bricks "red" "assign-nested-3"
 idx = 10
 key = "smthng"
 
+
+"Drew"
+"Hello " IT
+ASSERT_EQ IT "Hello Drew" "IT-on-same-line"
+
+
 foo[idx][key].bar = 200
 ASSERT_EQ foo[idx][key].bar 200 "nested"
 

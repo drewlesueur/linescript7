@@ -403,6 +403,14 @@ class Parser {
   parseExpression(precedence = 0) {
     let left = this.parsePrefix();
     while (true) {
+      if (precedence < 7 && left.type === "Literal" && typeof left.value === "string") {
+        const t = this.lexer.peek();
+        if (t.type === "IDENT" && t.value === "IT") {
+          const right = this.parseExpression(9);
+          left = { type: "Binary", op: "+", left, right };
+          continue;
+        }
+      }
       const op = this.peekOperator();
       const prec = this.getPrecedence(op);
       if (prec <= precedence) break;
@@ -655,6 +663,11 @@ class Interpreter {
       SPLIT: { arity: 2, fn: ([s, delim]) => this.toString(s).split(this.toString(delim)) },
       JOIN: { arity: 2, fn: ([arr, delim]) => Array.isArray(arr) ? arr.map((v) => this.toString(v)).join(this.toString(delim)) : "" },
       UPPER: { arity: 1, fn: ([s]) => this.toString(s).toUpperCase() },
+      CONCAT: { arity: 2, fn: ([a, b]) => this.toString(a) + this.toString(b) },
+      PLUS: { arity: 2, fn: ([a, b]) => this.evalBinary("+", a, b) },
+      MINUS: { arity: 2, fn: ([a, b]) => this.evalBinary("-", a, b) },
+      TIMES: { arity: 2, fn: ([a, b]) => this.evalBinary("*", a, b) },
+      OVER: { arity: 2, fn: ([a, b]) => this.evalBinary("/", a, b) },
       RAND: { arity: 2, fn: ([min, max]) => {
         const a = Math.floor(this.toNumber(min));
         const b = Math.floor(this.toNumber(max));
@@ -667,6 +680,13 @@ class Interpreter {
       UNSHIFT: { arity: 2, fn: ([arr, v]) => { if (Array.isArray(arr)) arr.unshift(v); return arr.length; } },
       SHIFT: { arity: 1, fn: ([arr]) => Array.isArray(arr) && arr.length ? arr.shift() : null },
       IT: { arity: 0, fn: () => (this.stack.length ? this.stack.pop() : null) },
+      SWAP: { arity: 0, fn: () => {
+        if (this.stack.length < 2) return null;
+        const a = this.stack.pop();
+        const b = this.stack.pop();
+        this.stack.push(a, b);
+        return null;
+      } },
       EXEC: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, true) },
       EXEC2: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, false) },
       EXEC_COMBINED: { arity: 1, fn: ([cmd]) => this.execCombined(cmd) },
