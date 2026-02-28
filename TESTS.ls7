@@ -459,7 +459,7 @@ END
 ASSERT_EQ TO_JSON stuff STRING ["a","b"]
 
 PUSH stuff "yo"
-ASSERT_EQ stuff[1] "yo" "PUSH test"
+ASSERT_EQ stuff[LEN stuff] "yo" "PUSH test"
 
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
