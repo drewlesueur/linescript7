@@ -164,6 +164,23 @@ function preprocess(source) {
     }
 
     const isIdent = (s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s);
+    if (indent === 0 && !/^[A-Za-z_][A-Za-z0-9_]*\s*:/.test(trimmed)) {
+      const parts = trimmed.split(/\s+/);
+      const eqIndex = parts.indexOf("=");
+      if (eqIndex > 1) {
+        const head = parts.slice(0, eqIndex);
+        const rest = parts.slice(eqIndex + 1);
+        if (rest.length > 0 && head.every((p) => isIdent(p) && !keywords.has(p))) {
+          const name = head[0];
+          const params = head.slice(1).join(" ");
+          const expr = rest.join(" ");
+          outLines.push(`FUNC ${name}${params ? " " + params : ""}`);
+          outLines.push(`    ${expr}`);
+          outLines.push("END");
+          continue;
+        }
+      }
+    }
     let isFuncDef = false;
     if (indent === 0 && !/^[A-Za-z_][A-Za-z0-9_]*\s*:/.test(trimmed)) {
       const parts = trimmed.split(/\s+/);

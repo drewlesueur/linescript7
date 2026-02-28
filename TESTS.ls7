@@ -241,6 +241,10 @@ NO_END x
     x + 1
 ASSERT_EQ (NO_END 4) 5 "func-no-end"
 
+# Single-line function def with '='
+INLINE_ADD a b = a + b + 1
+ASSERT_EQ (INLINE_ADD 2 3) 6 "func-inline"
+
 # Short-circuit AND/OR
 GLOBAL sc = 0
 SC_HIT
