@@ -236,6 +236,11 @@ FOR EACH key IN objLoop
 END
 ASSERT_EQ (JOIN keysArr ",") "a,b,c" "for-each-obj-k"
 
+# Function def without END (indentation-based)
+NO_END x
+    x + 1
+ASSERT_EQ (NO_END 4) 5 "func-no-end"
+
 # Short-circuit AND/OR
 GLOBAL sc = 0
 SC_HIT

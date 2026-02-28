@@ -129,6 +129,7 @@ function preprocess(source) {
     "AND", "OR", "NOT", "IS", "ISNT",
     "TRUE", "FALSE", "NULL",
   ]);
+  let pendingFuncEnd = false;
 
   const stripComments = (line) => {
     let out = "";
@@ -145,14 +146,24 @@ function preprocess(source) {
   for (let i = 0; i < lines.length; i += 1) {
     const raw = lines[i];
     const line = stripComments(raw);
+    const indent = line.match(/^\s*/)[0].length;
+    const trimmed = line.trim();
+
+    if (pendingFuncEnd && trimmed !== "" && indent === 0) {
+      if (trimmed === "END") {
+        outLines.push("END");
+        pendingFuncEnd = false;
+        continue;
+      }
+      outLines.push("END");
+      pendingFuncEnd = false;
+    }
     if (line.trim() === "") {
       outLines.push("");
       continue;
     }
 
     const isIdent = (s) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s);
-    const indent = line.match(/^\s*/)[0].length;
-    const trimmed = line.trim();
     let isFuncDef = false;
     if (indent === 0 && !/^[A-Za-z_][A-Za-z0-9_]*\s*:/.test(trimmed)) {
       const parts = trimmed.split(/\s+/);
@@ -184,6 +195,7 @@ function preprocess(source) {
     }
     if (isFuncDef) {
       outLines.push(`FUNC ${trimmed}`);
+      pendingFuncEnd = true;
       continue;
     }
 
@@ -217,6 +229,7 @@ function preprocess(source) {
 
     outLines.push(line);
   }
+  if (pendingFuncEnd) outLines.push("END");
 
   return { source: outLines.join("\n"), stringLiterals };
 }
