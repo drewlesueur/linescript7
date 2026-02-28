@@ -448,6 +448,19 @@ ASSERT_EQ obj2.city "NYC" "setat-object"
 foo[idx][key].bar = 200
 ASSERT_EQ foo[idx][key].bar 200 "nested"
 
+
+x = 1
+IF x IS 1
+    PUSH stuff "a"
+END
+IF x IS 1
+    PUSH stuff "b"
+END
+ASSERT_EQ TO_JSON stuff STRING ["a","b"]
+
+PUSH stuff "yo"
+ASSERT_EQ stuff[1] "yo" "PUSH test"
+
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
 ELSE

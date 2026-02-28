@@ -728,6 +728,7 @@ class Interpreter {
         }
         throw new Error("SETAT expects array or object");
       } },
+      TO_JSON: { arity: 1, fn: ([value]) => JSON.stringify(this.jsonSafeValue(value)) },
       UPPER: { arity: 1, fn: ([s]) => this.toString(s).toUpperCase() },
       CONCAT: { arity: 2, stackOptional: true, fn: ([a, b]) => this.toString(a || "") + this.toString(b || "") },
       PLUS: { arity: 2, fn: ([a, b]) => this.evalBinary("+", a, b) },
@@ -1322,6 +1323,18 @@ class Interpreter {
 
   formatValue(v) {
     return this.toString(v);
+  }
+
+  jsonSafeValue(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+    if (Array.isArray(v)) return v.map((x) => this.jsonSafeValue(x));
+    if (typeof v === "object") {
+      const out = {};
+      for (const key of Object.keys(v)) out[key] = this.jsonSafeValue(v[key]);
+      return out;
+    }
+    return null;
   }
 
   execCommand(cmd, throwOnNonZero) {
