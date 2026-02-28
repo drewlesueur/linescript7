@@ -970,6 +970,18 @@ class Interpreter {
       case "Identifier":
         return env.get(expr.name);
       case "Binary": {
+        if (expr.op === "AND") {
+          const left = this.evalExpr(expr.left, env, functions);
+          if (!this.isTruthy(left)) return false;
+          const right = this.evalExpr(expr.right, env, functions);
+          return this.isTruthy(right);
+        }
+        if (expr.op === "OR") {
+          const left = this.evalExpr(expr.left, env, functions);
+          if (this.isTruthy(left)) return true;
+          const right = this.evalExpr(expr.right, env, functions);
+          return this.isTruthy(right);
+        }
         const left = this.evalExpr(expr.left, env, functions);
         const right = this.evalExpr(expr.right, env, functions);
         return this.evalBinary(expr.op, left, right);

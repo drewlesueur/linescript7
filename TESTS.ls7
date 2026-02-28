@@ -236,6 +236,21 @@ FOR EACH key IN objLoop
 END
 ASSERT_EQ (JOIN keysArr ",") "a,b,c" "for-each-obj-k"
 
+# Short-circuit AND/OR
+GLOBAL sc = 0
+SC_HIT
+    GLOBAL sc += 1
+    RETURN TRUE
+END
+FALSE AND SC_HIT
+ASSERT_EQ sc 0 "and-short-circuit"
+TRUE OR SC_HIT
+ASSERT_EQ sc 0 "or-short-circuit"
+TRUE AND SC_HIT
+ASSERT_EQ sc 1 "and-eval-right"
+FALSE OR SC_HIT
+ASSERT_EQ sc 2 "or-eval-right"
+
 # WHILE + CONTINUE + BREAK
 i = 1
 sumWhile = 0
