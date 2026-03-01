@@ -24,9 +24,6 @@ ALL_DONE sleeps
     PRINT "yay all done" 
 END
 
-
-
-
 PRINT STRING scheduling callbacks
 SLEEP_CB 200 ["DONE" "first"]
 SLEEP_CB 400 ["DONE" "second"]

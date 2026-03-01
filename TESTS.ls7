@@ -431,8 +431,6 @@ ASSERT_EQ GREET1_ALT "Mr." "Hello, Mr." "stack-across-function"
 ASSERT_EQ GREET1_ALT2 "Mr." "Hello, Mr." "stack-across-function"
 ASSERT_EQ GREET1_ALT3 "Mr." "Hello, Mr." "stack-across-function"
 
-
-
 FOR i FROM 1 TO 5
     PUSH myVals i
 END
@@ -460,6 +458,12 @@ ASSERT_EQ TO_JSON stuff STRING ["a","b"]
 
 PUSH stuff "yo"
 ASSERT_EQ stuff[LEN stuff] "yo" "PUSH test"
+
+myList = [
+    UPPER "Drew"
+    SLICE "yoyo" 2 3
+]
+ASSERT_EQ TO_JSON myList ["DREW","oy"]
 
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
