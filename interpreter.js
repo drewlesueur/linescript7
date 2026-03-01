@@ -687,7 +687,7 @@ class Interpreter {
 
   createBuiltins() {
     return {
-      PRINT: { arity: 0, variadic: true, fn: (args) => {
+      PRINT: { arity: 0, variadic: true, noStack: true, fn: (args) => {
         let values = args;
         if (values.length === 0) {
           const base = this.stackFrameBases.length ? this.stackFrameBases[this.stackFrameBases.length - 1] : 0;
@@ -696,7 +696,7 @@ class Interpreter {
         const text = values.map((v) => this.formatValue(v)).join(" ");
         this.output.push(text);
         if (this.onOutput) this.onOutput(text);
-        return text;
+        return null;
       } },
       LEN: { arity: 1, fn: ([v]) => {
         if (v === null || v === undefined) return 0;
@@ -898,6 +898,10 @@ class Interpreter {
       }
       case "ExprStmt": {
         const value = this.evalExpr(stmt.expr, env, functions);
+        if (stmt.expr.type === "Call") {
+          const fn = functions.get(stmt.expr.name);
+          if (fn && fn.noStack) return value;
+        }
         this.stack.push(value);
         return value;
       }

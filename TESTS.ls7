@@ -326,6 +326,31 @@ UPPER
 result = IT
 ASSERT_EQ result "DR" "stack-pipeline"
 
+
+"Drew"; SLICE 1 2; UPPER
+r = IT
+ASSERT_EQ r "DR" "stack-pipeline-3"
+
+MY_UPPER v
+    UPPER v
+END
+
+"Drew"; SLICE 1 2; MY_UPPER
+r = IT
+ASSERT_EQ r "DR" "stack-pipeline-4"
+
+
+MY_CONCAT a b
+    a + b
+END
+
+"Hello, "
+MY_CONCAT "world"
+ASSERT_EQ IT "Hello, world" "stack-pipeline-5"
+
+
+
+
 # IT pops from stack
 "hello"
 popped = IT
@@ -467,16 +492,6 @@ ASSERT_EQ TO_JSON myList STRING ["DREW","oy"]
 
 a = NOW - 10
 PRINT a
-
-a = 1
-b = 2
-c = 3
-PRINT a b c
-ASSERT_EQ IT "1 2 3" "print-variadic"
-
-"from-stack"
-PRINT
-ASSERT_EQ IT "from-stack" "print-stack"
 
 a = NOW + 10
 SLEEP 10
