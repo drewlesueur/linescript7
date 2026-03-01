@@ -468,6 +468,16 @@ ASSERT_EQ TO_JSON myList STRING ["DREW","oy"]
 a = NOW - 10
 PRINT a
 
+a = 1
+b = 2
+c = 3
+PRINT a b c
+ASSERT_EQ IT "1 2 3" "print-variadic"
+
+"from-stack"
+PRINT
+ASSERT_EQ IT "from-stack" "print-stack"
+
 a = NOW + 10
 SLEEP 10
 THEN "DONE_SLEEP" "hi" "bye"

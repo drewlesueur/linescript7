@@ -687,11 +687,16 @@ class Interpreter {
 
   createBuiltins() {
     return {
-      PRINT: { arity: 1, fn: (args) => {
-        const text = this.formatValue(args[0]);
+      PRINT: { arity: 0, variadic: true, fn: (args) => {
+        let values = args;
+        if (values.length === 0) {
+          const base = this.stackFrameBases.length ? this.stackFrameBases[this.stackFrameBases.length - 1] : 0;
+          if (this.stack.length > base) values = [this.stack.pop()];
+        }
+        const text = values.map((v) => this.formatValue(v)).join(" ");
         this.output.push(text);
         if (this.onOutput) this.onOutput(text);
-        return args[0];
+        return text;
       } },
       LEN: { arity: 1, fn: ([v]) => {
         if (v === null || v === undefined) return 0;
