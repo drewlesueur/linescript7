@@ -465,6 +465,10 @@ myList = [
 ]
 ASSERT_EQ TO_JSON myList STRING ["DREW","oy"]
 
+a = NOW - 10
+PRINT a
+
+
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
 ELSE

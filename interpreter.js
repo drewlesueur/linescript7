@@ -786,6 +786,7 @@ class Interpreter {
       EXEC: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, true) },
       EXEC2: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, false) },
       EXEC_COMBINED: { arity: 1, fn: ([cmd]) => this.execCombined(cmd) },
+      NOW: { arity: 0, fn: () => Date.now() },
     };
   }
 
