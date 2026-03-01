@@ -473,7 +473,7 @@ SLEEP 10
 THEN "DONE_SLEEP" "hi" "bye"
 DONE_SLEEP message1 message2
     ASSERT_EQ message1 "hi" "params-on-then-1"
-    ASSERT_EQ message2 "hi" "params-on-then-2"
+    ASSERT_EQ message2 "bye" "params-on-then-2"
     FINALIZE
 END
 
