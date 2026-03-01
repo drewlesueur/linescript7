@@ -676,13 +676,21 @@ class Interpreter {
     this.pendingTimers = 0;
     this.timerResolve = null;
     this.asyncErrors = [];
+    this.timers = new Map();
+    this.nextTimerId = 1;
     this.random = options.random || (() => Math.random());
+    this.onOutput = typeof options.onOutput === "function" ? options.onOutput : null;
     this.builtins = this.createBuiltins();
   }
 
   createBuiltins() {
     return {
-      PRINT: { arity: 1, fn: (args) => { this.output.push(this.formatValue(args[0])); return args[0]; } },
+      PRINT: { arity: 1, fn: (args) => {
+        const text = this.formatValue(args[0]);
+        this.output.push(text);
+        if (this.onOutput) this.onOutput(text);
+        return args[0];
+      } },
       LEN: { arity: 1, fn: ([v]) => {
         if (v === null || v === undefined) return 0;
         if (Array.isArray(v) || typeof v === "string") return v.length;
@@ -750,6 +758,9 @@ class Interpreter {
       OVER: { arity: 2, fn: ([a, b]) => this.evalBinary("/", a, b) },
       SLEEP: { arity: 1, fn: ([ms]) => { this.sleepSync(ms); return null; } },
       SLEEP_CB: { arity: 2, fn: ([ms, cb]) => this.sleepCallback(ms, cb) },
+      SLEEP_REF: { arity: 1, fn: ([ms]) => this.sleepRef(ms) },
+      SLEEP_REF_CB: { arity: 2, fn: ([ms, cb]) => this.sleepRef(ms, cb) },
+      CANCEL: { arity: 1, fn: ([ref]) => this.cancelTimer(ref) },
       RAND: { arity: 2, fn: ([min, max]) => {
         const a = Math.floor(this.toNumber(min));
         const b = Math.floor(this.toNumber(max));
@@ -1371,26 +1382,71 @@ class Interpreter {
   }
 
   sleepCallback(ms, cb) {
-    if (!Array.isArray(cb) || cb.length === 0) throw new Error("SLEEP_CB expects callback array");
-    const name = cb[0];
-    if (typeof name !== "string") throw new Error("SLEEP_CB callback name must be string");
-    const args = cb.slice(1);
+    this.scheduleTimer(ms, cb, false);
+    return null;
+  }
+
+  sleepRef(ms, cb = null) {
+    return this.scheduleTimer(ms, cb, true);
+  }
+
+  scheduleTimer(ms, cb, returnRef) {
+    let name = null;
+    let args = [];
+    if (cb !== null) {
+      if (!Array.isArray(cb) || cb.length === 0) throw new Error("SLEEP_CB expects callback array");
+      name = cb[0];
+      if (typeof name !== "string") throw new Error("SLEEP_CB callback name must be string");
+      args = cb.slice(1);
+    }
     const duration = Math.max(0, Math.floor(this.toNumber(ms)));
+    const id = this.nextTimerId++;
     this.pendingTimers += 1;
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
+      const record = this.timers.get(id);
+      if (!record || record.canceled) {
+        this.finalizeTimer(id);
+        return;
+      }
       try {
-        this.invokeFunctionByName(name, args);
+        if (name !== null) this.invokeFunctionByName(name, args);
       } catch (err) {
         this.asyncErrors.push(err);
       } finally {
-        this.pendingTimers -= 1;
-        if (this.pendingTimers === 0 && this.timerResolve) {
-          const resolve = this.timerResolve;
-          this.timerResolve = null;
-          resolve();
-        }
+        this.finalizeTimer(id);
       }
     }, duration);
+    this.timers.set(id, { timeoutId, canceled: false });
+    if (returnRef) return { id };
+    return null;
+  }
+
+  cancelTimer(ref) {
+    const id = this.timerIdFromRef(ref);
+    if (id === null) return false;
+    const record = this.timers.get(id);
+    if (!record || record.canceled) return false;
+    record.canceled = true;
+    clearTimeout(record.timeoutId);
+    this.finalizeTimer(id);
+    return true;
+  }
+
+  finalizeTimer(id) {
+    if (this.timers.has(id)) this.timers.delete(id);
+    if (this.pendingTimers > 0) this.pendingTimers -= 1;
+    if (this.pendingTimers === 0 && this.timerResolve) {
+      const resolve = this.timerResolve;
+      this.timerResolve = null;
+      resolve();
+    }
+  }
+
+  timerIdFromRef(ref) {
+    if (typeof ref === "number" && Number.isFinite(ref)) return Math.floor(ref);
+    if (ref && typeof ref === "object" && typeof ref.id === "number" && Number.isFinite(ref.id)) {
+      return Math.floor(ref.id);
+    }
     return null;
   }
 
@@ -1523,11 +1579,17 @@ if (require.main === module) {
     }
 
     const source = fs.readFileSync(file, "utf8");
-    const result = await runScript(source);
-    if (result.output.length) {
-      process.stdout.write(result.output.join("\n"));
-      process.stdout.write("\n");
-    }
+    let first = true;
+    const result = await runScript(source, {
+      onOutput: (line) => {
+        if (!first) process.stdout.write("\n");
+        first = false;
+        process.stdout.write(line);
+      },
+    });
+    if (!result.output.length) return;
+    if (first) return;
+    process.stdout.write("\n");
   })().catch((err) => {
     console.error(err && err.stack ? err.stack : String(err));
     process.exit(1);
