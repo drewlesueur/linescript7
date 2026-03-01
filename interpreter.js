@@ -238,7 +238,9 @@ class Parser {
   constructor(lexer, functionArity) {
     this.lexer = lexer;
     this.functionArity = functionArity;
-    this.nonGreedyArity0 = new Set(["IT", "SWAP"]);
+    // Non-greedy 0-arity functions are value producers (NOW, IT, SWAP, etc.).
+    // Variadic/arg-consuming builtins (CALL, THEN, etc.) should remain greedy.
+    this.nonGreedyArity0 = new Set(["IT", "SWAP", "NOW"]);
   }
 
   parseProgram() {
