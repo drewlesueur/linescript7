@@ -673,6 +673,9 @@ class Interpreter {
     this.output = [];
     this.stack = [];
     this.stackFrameBases = [];
+    this.pendingTimers = 0;
+    this.timerResolve = null;
+    this.asyncErrors = [];
     this.random = options.random || (() => Math.random());
     this.builtins = this.createBuiltins();
   }
@@ -745,6 +748,8 @@ class Interpreter {
       MINUS: { arity: 2, fn: ([a, b]) => this.evalBinary("-", a, b) },
       TIMES: { arity: 2, fn: ([a, b]) => this.evalBinary("*", a, b) },
       OVER: { arity: 2, fn: ([a, b]) => this.evalBinary("/", a, b) },
+      SLEEP: { arity: 1, fn: ([ms]) => { this.sleepSync(ms); return null; } },
+      SLEEP_CB: { arity: 2, fn: ([ms, cb]) => this.sleepCallback(ms, cb) },
       RAND: { arity: 2, fn: ([min, max]) => {
         const a = Math.floor(this.toNumber(min));
         const b = Math.floor(this.toNumber(max));
@@ -774,7 +779,7 @@ class Interpreter {
     };
   }
 
-  run(source) {
+  async run(source) {
     const { source: pre, stringLiterals } = preprocess(source);
     const functionArity = this.collectFunctionArity(pre);
     const lexer = new Lexer(pre, stringLiterals);
@@ -783,6 +788,7 @@ class Interpreter {
     const globalEnv = new Environment();
     this.globalEnv = globalEnv;
     const functions = new Map();
+    this.functions = functions;
 
     for (const [name, def] of Object.entries(this.builtins)) {
       functions.set(name, def);
@@ -796,6 +802,8 @@ class Interpreter {
 
     const topRes = this.execBlock(program.body, globalEnv, functions);
     if (topRes && topRes.type === "goto") throw new Error(`Unknown label: ${topRes.label}`);
+    await this.waitForTimers();
+    if (this.asyncErrors.length) throw this.asyncErrors[0];
     return { env: globalEnv, output: this.output.slice() };
   }
 
@@ -1347,6 +1355,67 @@ class Interpreter {
     return null;
   }
 
+  sleepSync(ms) {
+    const duration = Math.max(0, Math.floor(this.toNumber(ms)));
+    if (duration <= 0) return;
+    const sab = new SharedArrayBuffer(4);
+    const view = new Int32Array(sab);
+    try {
+      Atomics.wait(view, 0, 0, duration);
+    } catch {
+      const end = Date.now() + duration;
+      while (Date.now() < end) {
+        // busy wait fallback
+      }
+    }
+  }
+
+  sleepCallback(ms, cb) {
+    if (!Array.isArray(cb) || cb.length === 0) throw new Error("SLEEP_CB expects callback array");
+    const name = cb[0];
+    if (typeof name !== "string") throw new Error("SLEEP_CB callback name must be string");
+    const args = cb.slice(1);
+    const duration = Math.max(0, Math.floor(this.toNumber(ms)));
+    this.pendingTimers += 1;
+    setTimeout(() => {
+      try {
+        this.invokeFunctionByName(name, args);
+      } catch (err) {
+        this.asyncErrors.push(err);
+      } finally {
+        this.pendingTimers -= 1;
+        if (this.pendingTimers === 0 && this.timerResolve) {
+          const resolve = this.timerResolve;
+          this.timerResolve = null;
+          resolve();
+        }
+      }
+    }, duration);
+    return null;
+  }
+
+  waitForTimers() {
+    if (this.pendingTimers === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      this.timerResolve = resolve;
+    });
+  }
+
+  invokeFunctionByName(name, args) {
+    const fn = this.functions.get(name);
+    if (!fn) throw new Error(`Unknown function: ${name}`);
+    if (args.length !== fn.arity) throw new Error(`Too many args for ${name}`);
+    if (fn.fn) return fn.fn(args);
+    const local = new Environment(this.globalEnv);
+    for (let i = 0; i < fn.node.params.length; i += 1) {
+      local.define(fn.node.params[i], args[i]);
+    }
+    const res = this.execBlock(fn.node.body, local, this.functions);
+    if (res.type === "goto") throw new Error(`Unknown label: ${res.label}`);
+    if (res.type === "return") return res.value;
+    return res.value;
+  }
+
   execCommand(cmd, throwOnNonZero) {
     const { execSync, spawnSync } = require("child_process");
     const command = this.toString(cmd);
@@ -1436,7 +1505,7 @@ class Interpreter {
   }
 }
 
-function runScript(source, options) {
+async function runScript(source, options) {
   const interpreter = new Interpreter(options);
   return interpreter.run(source);
 }
@@ -1446,16 +1515,21 @@ module.exports = { runScript, Interpreter };
 if (require.main === module) {
   const fs = require("fs");
 
-  const file = process.argv[2];
-  if (!file) {
-    console.error("Usage: node interpreter.js <script-file>");
-    process.exit(1);
-  }
+  (async () => {
+    const file = process.argv[2];
+    if (!file) {
+      console.error("Usage: node interpreter.js <script-file>");
+      process.exit(1);
+    }
 
-  const source = fs.readFileSync(file, "utf8");
-  const result = runScript(source);
-  if (result.output.length) {
-    process.stdout.write(result.output.join("\n"));
-    process.stdout.write("\n");
-  }
+    const source = fs.readFileSync(file, "utf8");
+    const result = await runScript(source);
+    if (result.output.length) {
+      process.stdout.write(result.output.join("\n"));
+      process.stdout.write("\n");
+    }
+  })().catch((err) => {
+    console.error(err && err.stack ? err.stack : String(err));
+    process.exit(1);
+  });
 }
