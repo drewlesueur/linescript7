@@ -1,6 +1,7 @@
 PRINT STRING start
 SLEEP 300
-PRINT STRING after 300ms
+THEN "AFTER_300"
+PRINT STRING after scheduling 300ms
 
 DONE tag
     PRINT STRING cb:
@@ -8,10 +9,12 @@ DONE tag
 END
 
 sleeps = {count: 3 finalCb: "ALL_DONE"}
-cb = ["WAIT_SLEEP" sleeps]
-SLEEP_CB 20 cb
-SLEEP_CB 10 cb
-SLEEP_CB 30 cb
+SLEEP 20
+THEN "WAIT_SLEEP" sleeps
+SLEEP 10
+THEN "WAIT_SLEEP" sleeps
+SLEEP 30
+THEN "WAIT_SLEEP" sleeps
 WAIT_SLEEP sleeps
     sleeps.count -= 1
     IF sleeps.count IS 0
@@ -23,13 +26,24 @@ ALL_DONE sleeps
 END
 
 PRINT STRING scheduling callbacks
-SLEEP_CB 200 ["DONE" "first"]
-SLEEP_CB 400 ["DONE" "second"]
-SLEEP_CB 100 ["DONE" "third"]
+SLEEP 200
+THEN "DONE" "first"
+SLEEP 400
+THEN "DONE" "second"
+SLEEP 100
+THEN "DONE" "third"
 
 PRINT STRING after scheduling
 SLEEP 700
-PRINT STRING after 1s total
+THEN "AFTER_1S"
 
-SLEEP_CB 3000 ["DONE" "after 3 seconds"]
+SLEEP 3000
+THEN "DONE" "after 3 seconds"
 
+AFTER_300
+    PRINT STRING after 300ms
+END
+
+AFTER_1S
+    PRINT STRING after 1s total
+END

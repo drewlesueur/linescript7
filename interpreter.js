@@ -756,11 +756,8 @@ class Interpreter {
       MINUS: { arity: 2, fn: ([a, b]) => this.evalBinary("-", a, b) },
       TIMES: { arity: 2, fn: ([a, b]) => this.evalBinary("*", a, b) },
       OVER: { arity: 2, fn: ([a, b]) => this.evalBinary("/", a, b) },
-      SLEEP: { arity: 1, fn: ([ms]) => { this.sleepSync(ms); return null; } },
-      SLEEP_CB: { arity: 2, fn: ([ms, cb]) => this.sleepCallback(ms, cb) },
-      SLEEP_REF: { arity: 1, fn: ([ms]) => this.sleepRef(ms) },
-      SLEEP_REF_CB: { arity: 2, fn: ([ms, cb]) => this.sleepRef(ms, cb) },
-      CANCEL: { arity: 1, fn: ([ref]) => this.cancelTimer(ref) },
+      SLEEP: { arity: 1, fn: ([ms]) => this.sleepPromise(ms) },
+      THEN: { arity: 0, variadic: true, fn: (args) => this.thenPromise(args) },
       CALL: { arity: 0, variadic: true, fn: (args) => this.callByName(args) },
       APPLY: { arity: 2, fn: ([name, args]) => this.applyByName(name, args) },
       RAND: { arity: 2, fn: ([min, max]) => {
@@ -1371,70 +1368,67 @@ class Interpreter {
     return null;
   }
 
-  sleepSync(ms) {
-    const duration = Math.max(0, Math.floor(this.toNumber(ms)));
-    if (duration <= 0) return;
-    const sab = new SharedArrayBuffer(4);
-    const view = new Int32Array(sab);
-    try {
-      Atomics.wait(view, 0, 0, duration);
-    } catch {
-      const end = Date.now() + duration;
-      while (Date.now() < end) {
-        // busy wait fallback
-      }
-    }
-  }
-
-  sleepCallback(ms, cb) {
-    this.scheduleTimer(ms, cb, false);
-    return null;
-  }
-
-  sleepRef(ms, cb = null) {
-    return this.scheduleTimer(ms, cb, true);
-  }
-
-  scheduleTimer(ms, cb, returnRef) {
-    let name = null;
-    let args = [];
-    if (cb !== null) {
-      if (!Array.isArray(cb) || cb.length === 0) throw new Error("SLEEP_CB expects callback array");
-      name = cb[0];
-      if (typeof name !== "string") throw new Error("SLEEP_CB callback name must be string");
-      args = cb.slice(1);
-    }
+  sleepPromise(ms) {
     const duration = Math.max(0, Math.floor(this.toNumber(ms)));
     const id = this.nextTimerId++;
+    const promise = {
+      __ls7_promise: true,
+      id,
+      done: false,
+      callbacks: [],
+    };
     this.pendingTimers += 1;
     const timeoutId = setTimeout(() => {
       const record = this.timers.get(id);
-      if (!record || record.canceled) {
+      if (!record) {
         this.finalizeTimer(id);
         return;
       }
       try {
-        if (name !== null) this.invokeFunctionByName(name, args);
+        const p = record.promise;
+        p.done = true;
+        const callbacks = p.callbacks.slice();
+        p.callbacks.length = 0;
+        for (const cb of callbacks) {
+          this.invokeFunctionByName(cb.name, cb.args);
+        }
       } catch (err) {
         this.asyncErrors.push(err);
       } finally {
         this.finalizeTimer(id);
       }
     }, duration);
-    this.timers.set(id, { timeoutId, canceled: false });
-    if (returnRef) return { id };
-    return null;
+    this.timers.set(id, { timeoutId, promise });
+    return promise;
   }
 
-  cancelTimer(ref) {
-    const id = this.timerIdFromRef(ref);
-    if (id === null) return false;
-    const record = this.timers.get(id);
-    if (!record || record.canceled) return false;
-    record.canceled = true;
-    clearTimeout(record.timeoutId);
-    this.finalizeTimer(id);
-    return true;
+  thenPromise(args) {
+    let promise = null;
+    let name = null;
+    let fnArgs = [];
+    // Promise detection relies on SLEEP-tagged objects with __ls7_promise === true.
+    if (args.length >= 2 && args[0] && typeof args[0] === "object" && args[0].__ls7_promise === true) {
+      promise = args[0];
+      name = args[1];
+      fnArgs = args.slice(2);
+    } else if (args.length >= 1) {
+      name = args[0];
+      fnArgs = args.slice(1);
+      const base = this.stackFrameBases.length ? this.stackFrameBases[this.stackFrameBases.length - 1] : 0;
+      if (this.stack.length <= base) throw new Error("THEN expects promise on stack");
+      promise = this.stack.pop();
+    } else {
+      throw new Error("THEN expects function name");
+    }
+    if (!promise || typeof promise !== "object" || promise.__ls7_promise !== true) {
+      throw new Error("THEN expects promise object");
+    }
+    if (typeof name !== "string") throw new Error("THEN function name must be string");
+    if (promise.done) {
+      return this.invokeFunctionByName(name, fnArgs);
+    }
+    promise.callbacks.push({ name, args: fnArgs });
+    return promise;
   }
 
   finalizeTimer(id) {
@@ -1445,14 +1439,6 @@ class Interpreter {
       this.timerResolve = null;
       resolve();
     }
-  }
-
-  timerIdFromRef(ref) {
-    if (typeof ref === "number" && Number.isFinite(ref)) return Math.floor(ref);
-    if (ref && typeof ref === "object" && typeof ref.id === "number" && Number.isFinite(ref.id)) {
-      return Math.floor(ref.id);
-    }
-    return null;
   }
 
   waitForTimers() {

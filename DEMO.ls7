@@ -6,37 +6,33 @@
 
 
 SLEEP 300
-THEN AFTER_SLEEP
+THEN "AFTER_SLEEP"
 AFTER_SLEEP
 
 END
 
 
 SLEEP 1500
-THEN AFTER_SLEEP "hi"
+THEN "AFTER_SLEEP" "hi"
 AFTER_SLEEP message
     PRINT message
 END
 
-
-
-
-
 DEMO_PROCESS s
     s.promise = PROMISE
     CONNECT "localhost:3030" "admin" "admin123" 
-    THEN ON_CONNECT s
+    THEN .ON_CONNECT s
 ON_CONNECT s conn
     s.conn = conn
     DO_QUERY conn STRING SELECT * FROM employees WHERE score > 45
-    THEN ON_RESULT s 
+    THEN .ON_RESULT s 
 ON_RESULT s result
     s.mainResult = result
     s.subResults = []
     FOR i FROM 1 to 10
         query = %STRING SELECT * FROM accounts WHERE id = %{i}
         DO_QUERY s.conn query
-        *ON_ACCOUNT_RESULT s i
+        ON_ACCOUNT_RESULT s i
     END
     s.i = i
 ON_ACCOUNT_RESULT s i result
@@ -48,14 +44,14 @@ ON_ACCOUNT_RESULT s i result
     END
     query = %STRING SELECT * FROM accounts WHERE id = %{s.i}
     DO_QUERY s.conn query  
-    THEN ON_ACCOUNT_RESULT s s.i
+    THEN .ON_ACCOUNT_RESULT s s.i
 DONE_ACCOUNTS s
     [
         DO_QUERY s.conn STRING SELECT * FROM jobs ORDER BY updated_at DESC LIMIT 1
         DO_QUERY s.conn STRING SELECT * FROM invoices ORDER BY updated_at DESC LIMIT 1
         DO_QUERY s.conn STRING SELECT * FROM tickets ORDER BY updated_at DESC LIMIT 1
     ]
-    THEN_ALL *ON_LAST_STEP_DONE s
+    THEN ~ ON_LAST_STEP_DONE s
 ON_LAST_STEP_DONE s results
     RESOLVE s.promise {
         mainResult: s.mainResult
@@ -124,8 +120,6 @@ MAIN
 AFTER_PROCESS
     
 END
-
-
 
 
 
