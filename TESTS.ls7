@@ -463,7 +463,7 @@ myList = [
     UPPER "Drew"
     SLICE "yoyo" 2 3
 ]
-ASSERT_EQ TO_JSON myList ["DREW","oy"]
+ASSERT_EQ TO_JSON myList STRING ["DREW","oy"]
 
 IF failures IS 0
     PRINT STRING ALL TESTS PASSED
