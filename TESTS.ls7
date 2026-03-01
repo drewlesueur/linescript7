@@ -468,10 +468,20 @@ ASSERT_EQ TO_JSON myList STRING ["DREW","oy"]
 a = NOW - 10
 PRINT a
 
+a = NOW + 10
+SLEEP 10
+THEN "DONE_SLEEP" "hi" "bye"
+DONE_SLEEP message1 message2
+    ASSERT_EQ message1 "hi" "params-on-then-1"
+    ASSERT_EQ message2 "hi" "params-on-then-2"
+    FINALIZE
+END
 
-IF failures IS 0
-    PRINT STRING ALL TESTS PASSED
-ELSE
-    PRINT STRING FAILURES:
-    PRINT failures
+FINALIZE
+    IF failures IS 0
+        PRINT STRING ALL TESTS PASSED
+    ELSE
+        PRINT STRING FAILURES:
+        PRINT failures
+    END
 END
