@@ -349,6 +349,25 @@ class Parser {
 
   parseForWithLabel(label) {
     if (this.matchKeyword("EACH")) {
+      return this.parseForEachAfterFor(label);
+    }
+    if (this.check("IDENT") && !(this.lexer.peek(1).type === "IDENT" && this.lexer.peek(1).value === "FROM")) {
+      return this.parseForEachAfterFor(label);
+    }
+
+    const name = this.expectIdent();
+    this.expectKeyword("FROM");
+    const start = this.parseExpression();
+    this.expectKeyword("TO");
+    const end = this.parseExpression();
+    this.consumeEnd();
+    const body = this.parseBlock(["END"]);
+    this.expectKeyword("END");
+    this.consumeEnd();
+    return { type: "For", name, start, end, body, label };
+  }
+
+  parseForEachAfterFor(label) {
       const first = this.expectIdent();
       let second = null;
       if (this.check("IDENT") && this.lexer.peek().value !== "IN") second = this.expectIdent();
@@ -366,18 +385,6 @@ class Parser {
         body,
         label,
       };
-    }
-
-    const name = this.expectIdent();
-    this.expectKeyword("FROM");
-    const start = this.parseExpression();
-    this.expectKeyword("TO");
-    const end = this.parseExpression();
-    this.consumeEnd();
-    const body = this.parseBlock(["END"]);
-    this.expectKeyword("END");
-    this.consumeEnd();
-    return { type: "For", name, start, end, body, label };
   }
 
   parseLabeledStatement() {

@@ -78,18 +78,18 @@ FOR i FROM 1 TO 5
     randomValues[i] = value
 END
 
-# FOR EACH loop (index and value)
-FOR EACH idx val IN numbers
+# FOR loop (index and value)
+FOR idx val IN numbers
     numbers[idx] = val + 1
 END
 
-# FOR EACH loop (value only)
-FOR EACH val IN numbers
+# FOR loop (value only)
+FOR val IN numbers
     total = total + val
 END
 
-# FOR EACH loop (object keys and values)
-FOR EACH key val IN user
+# FOR loop (object keys and values)
+FOR key val IN user
     lastKey = key
 END
 

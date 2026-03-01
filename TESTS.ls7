@@ -197,41 +197,41 @@ END
 gReadVal = READ_GLOBAL
 ASSERT_EQ gReadVal "global" "func-global-read"
 
-# FOR and FOR EACH
+# FOR and FOR
 total = 0
 FOR i FROM 1 TO 3
     total = total + i
 END
 ASSERT_EQ total 6 "for-loop"
 
-FOR EACH idx val IN numbers
+FOR idx val IN numbers
     numbers[idx] = val + 1
 END
 ASSERT_EQ (JOIN numbers ",") "2,3,100" "for-each-index"
 
-# FOR EACH variations (array/object, key+val and val-only)
+# FOR variations (array/object, key+val and val-only)
 sumArrayVals = 0
-FOR EACH idx val IN numbers
+FOR idx val IN numbers
     sumArrayVals = sumArrayVals + val
 END
 ASSERT_EQ sumArrayVals 105 "for-each-array-kv"
 
 sumArrayVals2 = 0
-FOR EACH val IN numbers
+FOR val IN numbers
     sumArrayVals2 = sumArrayVals2 + val
 END
 ASSERT_EQ sumArrayVals2 105 "for-each-array-v"
 
 objLoop = { a: 1 b: 2 c: 3 }
 objSum = 0
-FOR EACH key val IN objLoop
+FOR key val IN objLoop
     objSum = objSum + val
 END
 ASSERT_EQ objSum 6 "for-each-obj-kv"
 
 objSum2 = 0
 keysArr = []
-FOR EACH key IN objLoop
+FOR key IN objLoop
     PUSH keysArr key
 END
 ASSERT_EQ (JOIN keysArr ",") "a,b,c" "for-each-obj-k"
