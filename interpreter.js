@@ -761,6 +761,7 @@ class Interpreter {
       SLEEP_REF: { arity: 1, fn: ([ms]) => this.sleepRef(ms) },
       SLEEP_REF_CB: { arity: 2, fn: ([ms, cb]) => this.sleepRef(ms, cb) },
       CANCEL: { arity: 1, fn: ([ref]) => this.cancelTimer(ref) },
+      CALL: { arity: 0, fn: (args) => this.callByName(args) },
       RAND: { arity: 2, fn: ([min, max]) => {
         const a = Math.floor(this.toNumber(min));
         const b = Math.floor(this.toNumber(max));
@@ -1470,6 +1471,14 @@ class Interpreter {
     if (res.type === "goto") throw new Error(`Unknown label: ${res.label}`);
     if (res.type === "return") return res.value;
     return res.value;
+  }
+
+  callByName(args) {
+    if (!args.length) throw new Error("CALL expects function name");
+    const name = args[0];
+    if (typeof name !== "string") throw new Error("CALL name must be string");
+    const fnArgs = args.slice(1);
+    return this.invokeFunctionByName(name, fnArgs);
   }
 
   execCommand(cmd, throwOnNonZero) {
