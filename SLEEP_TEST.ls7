@@ -1,0 +1,40 @@
+PRINT STRING start
+SLEEP 300
+PRINT STRING after 300ms
+
+DONE tag
+    PRINT STRING cb:
+    PRINT tag
+END
+
+
+
+sleeps = {count: 3 finalCb: "ALL_DONE"}
+cb = ["WAIT_SLEEP" sleeps]
+SLEEP_CB 20 cb
+SLEEP_CB 10 cb
+SLEEP_CB 30 cb
+WAIT_SLEEP sleeps
+    sleeps.count -= 1
+    IF sleeps.count IS 0
+        CALL sleeps.finalCb sleeps
+    END
+END
+ALL_DONE sleeps
+    PRINT "yay all done" 
+END
+
+
+
+
+PRINT STRING scheduling callbacks
+SLEEP_CB 200 ["DONE" "first"]
+SLEEP_CB 400 ["DONE" "second"]
+SLEEP_CB 100 ["DONE" "third"]
+
+PRINT STRING after scheduling
+SLEEP 700
+PRINT STRING after 1s total
+
+SLEEP_CB 3000 ["DONE" "after 3 seconds"]
+
