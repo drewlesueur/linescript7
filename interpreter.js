@@ -258,7 +258,6 @@ class Parser {
       return this.parseLabeledStatement();
     }
     if (this.matchKeyword("IF")) return this.parseIfWithLabel(null);
-    if (this.matchKeyword("WHILE")) return this.parseWhile();
     if (this.matchKeyword("FOR")) return this.parseFor();
     if (this.matchKeyword("FUNC")) return this.parseFunc();
     if (this.matchKeyword("RETURN")) {
@@ -330,19 +329,6 @@ class Parser {
     return { type: "If", branches, elseBody, label };
   }
 
-  parseWhile() {
-    return this.parseWhileWithLabel(null);
-  }
-
-  parseWhileWithLabel(label) {
-    const cond = this.parseExpression();
-    this.consumeEnd();
-    const body = this.parseBlock(["END"]);
-    this.expectKeyword("END");
-    this.consumeEnd();
-    return { type: "While", cond, body, label };
-  }
-
   parseFor() {
     return this.parseForWithLabel(null);
   }
@@ -352,7 +338,16 @@ class Parser {
       return this.parseForEachAfterFor(label);
     }
     if (this.check("IDENT") && !(this.lexer.peek(1).type === "IDENT" && this.lexer.peek(1).value === "FROM")) {
-      return this.parseForEachAfterFor(label);
+      if (this.lexer.peek(1).type === "IDENT" && this.lexer.peek(1).value === "IN") {
+        return this.parseForEachAfterFor(label);
+      }
+      if (this.lexer.peek(2).type === "IDENT" && this.lexer.peek(2).value === "IN") {
+        return this.parseForEachAfterFor(label);
+      }
+      return this.parseForCond(label);
+    }
+    if (!this.check("IDENT")) {
+      return this.parseForCond(label);
     }
 
     const name = this.expectIdent();
@@ -387,11 +382,19 @@ class Parser {
       };
   }
 
+  parseForCond(label) {
+    const cond = this.parseExpression();
+    this.consumeEnd();
+    const body = this.parseBlock(["END"]);
+    this.expectKeyword("END");
+    this.consumeEnd();
+    return { type: "While", cond, body, label };
+  }
+
   parseLabeledStatement() {
     const label = this.expectIdent();
     this.expect("OP", ":");
     if (this.matchKeyword("FOR")) return this.parseForWithLabel(label);
-    if (this.matchKeyword("WHILE")) return this.parseWhileWithLabel(label);
     if (this.matchKeyword("IF")) return this.parseIfWithLabel(label);
     this.consumeEnd();
     return { type: "Label", label };

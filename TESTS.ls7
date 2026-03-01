@@ -257,10 +257,10 @@ ASSERT_EQ sc 1 "and-eval-right"
 FALSE OR SC_HIT
 ASSERT_EQ sc 2 "or-eval-right"
 
-# WHILE + CONTINUE + BREAK
+# FOR + CONTINUE + BREAK
 i = 1
 sumWhile = 0
-WHILE i <= 5
+FOR i <= 5
     IF i IS 2
         i = i + 1
         CONTINUE

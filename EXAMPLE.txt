@@ -99,9 +99,9 @@ lastValue = POP randomValues
 UNSHIFT randomValues 7
 firstValue = SHIFT randomValues
 
-# WHILE with CONTINUE and BREAK
+# FOR with CONTINUE and BREAK
 i = 1
-WHILE i <= LEN randomValues
+FOR i <= LEN randomValues
     IF randomValues[i] < 10
         i = i + 1
         CONTINUE
