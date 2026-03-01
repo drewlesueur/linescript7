@@ -479,7 +479,8 @@ END
 IF x IS 1
     PUSH stuff "b"
 END
-ASSERT_EQ TO_JSON stuff STRING ["a","b"]
+expectedStuffJson = STRING ["a","b"]
+ASSERT_EQ TO_JSON stuff expectedStuffJson "json-stuff"
 
 PUSH stuff "yo"
 ASSERT_EQ stuff[LEN stuff] "yo" "PUSH test"
@@ -488,7 +489,8 @@ myList = [
     UPPER "Drew"
     SLICE "yoyo" 2 3
 ]
-ASSERT_EQ TO_JSON myList STRING ["DREW","oy"]
+expectedMyListJson = STRING ["DREW","oy"]
+ASSERT_EQ TO_JSON myList expectedMyListJson "json-mylist"
 
 a = NOW - 10
 PRINT a

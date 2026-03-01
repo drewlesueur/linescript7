@@ -1103,9 +1103,14 @@ class Interpreter {
         args[0] = this.ensureArrayForTarget(argsExpr[0], env, functions);
       }
     }
-    if (explicitCount > 0 && !fn.fn) {
-      for (const v of args) this.stack.push(v);
-      this.stackFrameBases.push(this.stack.length - args.length);
+    let extras = null;
+    let pushedFrame = false;
+    if (!fn.fn) {
+      if ((explicitCount > arity) || (arity === 0 && explicitCount > 0)) {
+        extras = arity === 0 ? args.slice() : args.slice(arity);
+        this.stackFrameBases.push(this.stack.length);
+        pushedFrame = true;
+      }
     }
     if (args.length > arity) {
       if (fn.fn) {
@@ -1129,13 +1134,16 @@ class Interpreter {
       }
     }
 
+    if (extras) {
+      for (const v of extras) this.stack.push(v);
+    }
     if (fn.fn) return fn.fn(args);
     const local = new Environment(this.globalEnv);
     for (let i = 0; i < fn.node.params.length; i += 1) {
       local.define(fn.node.params[i], args[i]);
     }
     const res = this.execBlock(fn.node.body, local, functions);
-    if (explicitCount > 0) this.stackFrameBases.pop();
+    if (pushedFrame) this.stackFrameBases.pop();
     if (res.type === "goto") throw new Error(`Unknown label: ${res.label}`);
     if (res.type === "return") return res.value;
     return res.value;
