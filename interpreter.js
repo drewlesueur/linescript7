@@ -762,6 +762,7 @@ class Interpreter {
       SLEEP_REF_CB: { arity: 2, fn: ([ms, cb]) => this.sleepRef(ms, cb) },
       CANCEL: { arity: 1, fn: ([ref]) => this.cancelTimer(ref) },
       CALL: { arity: 0, variadic: true, fn: (args) => this.callByName(args) },
+      APPLY: { arity: 2, fn: ([name, args]) => this.applyByName(name, args) },
       RAND: { arity: 2, fn: ([min, max]) => {
         const a = Math.floor(this.toNumber(min));
         const b = Math.floor(this.toNumber(max));
@@ -1482,6 +1483,12 @@ class Interpreter {
     if (typeof name !== "string") throw new Error("CALL name must be string");
     const fnArgs = args.slice(1);
     return this.invokeFunctionByName(name, fnArgs);
+  }
+
+  applyByName(name, args) {
+    if (typeof name !== "string") throw new Error("APPLY name must be string");
+    if (!Array.isArray(args)) throw new Error("APPLY args must be array");
+    return this.invokeFunctionByName(name, args);
   }
 
   execCommand(cmd, throwOnNonZero) {
