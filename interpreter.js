@@ -761,7 +761,7 @@ class Interpreter {
       SLEEP_REF: { arity: 1, fn: ([ms]) => this.sleepRef(ms) },
       SLEEP_REF_CB: { arity: 2, fn: ([ms, cb]) => this.sleepRef(ms, cb) },
       CANCEL: { arity: 1, fn: ([ref]) => this.cancelTimer(ref) },
-      CALL: { arity: 0, fn: (args) => this.callByName(args) },
+      CALL: { arity: 0, variadic: true, fn: (args) => this.callByName(args) },
       RAND: { arity: 2, fn: ([min, max]) => {
         const a = Math.floor(this.toNumber(min));
         const b = Math.floor(this.toNumber(max));
@@ -1098,8 +1098,11 @@ class Interpreter {
       this.stackFrameBases.push(this.stack.length - args.length);
     }
     if (args.length > arity) {
-      if (fn.fn) throw new Error(`Too many args for ${name}`);
-      args.splice(arity);
+      if (fn.fn) {
+        if (!fn.variadic) throw new Error(`Too many args for ${name}`);
+      } else {
+        args.splice(arity);
+      }
     }
     if (args.length < arity) {
       const missing = arity - args.length;
