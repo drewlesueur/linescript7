@@ -822,8 +822,8 @@ class Interpreter {
       EXEC2: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, false) },
       EXEC_COMBINED: { arity: 1, fn: ([cmd]) => this.execCombined(cmd) },
       NOW: { arity: 0, fn: () => Date.now() },
-      NEXT: { arity: 0, fn: () => this.callNextFunction() },
-      SELF: { arity: 0, fn: () => this.callSelfFunction() },
+      NEXT: { arity: 0, variadic: true, fn: (args) => this.callNextFunction(args) },
+      SELF: { arity: 0, variadic: true, fn: (args) => this.callSelfFunction(args) },
     };
   }
 
@@ -1185,19 +1185,75 @@ class Interpreter {
     }
   }
 
-  callNextFunction() {
+  callNextFunction(args = []) {
     if (!this.callStack.length) return null;
     const current = this.callStack[this.callStack.length - 1];
     const idx = this.functionOrder.indexOf(current);
     if (idx === -1 || idx + 1 >= this.functionOrder.length) return null;
     const nextName = this.functionOrder[idx + 1];
-    return this.callFunction(nextName, [], this.globalEnv, this.functions);
+    return this.callFunctionWithValues(nextName, args);
   }
 
-  callSelfFunction() {
+  callSelfFunction(args = []) {
     if (!this.callStack.length) return null;
     const current = this.callStack[this.callStack.length - 1];
-    return this.callFunction(current, [], this.globalEnv, this.functions);
+    return this.callFunctionWithValues(current, args);
+  }
+
+  callFunctionWithValues(name, values) {
+    const fn = this.functions.get(name);
+    if (!fn) throw new Error(`Unknown function: ${name}`);
+    const arity = fn.arity;
+    const explicitCount = values.length;
+    const args = values.slice();
+    let extras = null;
+    let pushedFrame = false;
+    if (!fn.fn) {
+      if ((explicitCount > arity) || (arity === 0 && explicitCount > 0)) {
+        extras = arity === 0 ? args.slice() : args.slice(arity);
+        this.stackFrameBases.push(this.stack.length);
+        pushedFrame = true;
+      }
+    }
+    if (args.length > arity) {
+      if (fn.fn) {
+        if (!fn.variadic) throw new Error(`Too many args for ${name}`);
+      } else {
+        args.splice(arity);
+      }
+    }
+    if (args.length < arity) {
+      const missing = arity - args.length;
+      const base = this.stackFrameBases.length ? this.stackFrameBases[this.stackFrameBases.length - 1] : 0;
+      const available = this.stack.length - base;
+      if (available < missing && !fn.stackOptional) throw new Error(`Not enough stack values for ${name}`);
+      const pulled = [];
+      const toPull = Math.min(missing, available);
+      for (let i = 0; i < toPull; i += 1) pulled.push(this.stack.pop());
+      pulled.reverse();
+      args.unshift(...pulled);
+      if (missing > toPull && fn.stackOptional) {
+        for (let i = 0; i < missing - toPull; i += 1) args.unshift(null);
+      }
+    }
+    if (extras) {
+      for (const v of extras) this.stack.push(v);
+    }
+    if (fn.fn) return fn.fn(args);
+    this.callStack.push(name);
+    try {
+      const local = new Environment(this.globalEnv);
+      for (let i = 0; i < fn.node.params.length; i += 1) {
+        local.define(fn.node.params[i], args[i]);
+      }
+      const res = this.execBlock(fn.node.body, local, this.functions);
+      if (pushedFrame) this.stackFrameBases.pop();
+      if (res.type === "goto") throw new Error(`Unknown label: ${res.label}`);
+      if (res.type === "return") return res.value;
+      return res.value;
+    } finally {
+      this.callStack.pop();
+    }
   }
 
   assign(target, value, env, functions) {
