@@ -801,7 +801,12 @@ class Interpreter {
       } },
       TO_JSON: { arity: 1, fn: ([value]) => JSON.stringify(this.jsonSafeValue(value)) },
       UPPER: { arity: 1, fn: ([s]) => this.toString(s).toUpperCase() },
-      CONCAT: { arity: 2, stackOptional: true, fn: ([a, b]) => this.toString(a || "") + this.toString(b || "") },
+      CONCAT: {
+        arity: 2,
+        variadic: true,
+        stackOptional: true,
+        fn: (args) => args.map((v) => (v === null || v === undefined ? "" : this.toString(v))).join(""),
+      },
       PLUS: { arity: 2, fn: ([a, b]) => this.evalBinary("+", a, b) },
       MINUS: { arity: 2, fn: ([a, b]) => this.evalBinary("-", a, b) },
       TIMES: { arity: 2, fn: ([a, b]) => this.evalBinary("*", a, b) },

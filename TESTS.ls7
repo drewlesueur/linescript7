@@ -445,6 +445,19 @@ END
 greeting = GREET "Drew"
 ASSERT_EQ greeting "Hello, Drew" "stack-across-function"
 
+### CONCAT variadic tests
+"Hello"
+"World"
+CONCAT
+ASSERT_EQ IT "HelloWorld" "concat-0-args"
+
+"Hello"
+CONCAT "World"
+ASSERT_EQ IT "HelloWorld" "concat-1-arg"
+
+ASSERT_EQ (CONCAT "Hello" "World") "HelloWorld" "concat-2-args"
+ASSERT_EQ (CONCAT "a" "b" "c" "d" "e") "abcde" "concat-5-args"
+
 v = PLUS LEN "yo" LEN "woa"
 ASSERT_EQ v 5 "arity-test"
 
@@ -607,6 +620,10 @@ SUTFF3 v v2
     ASSERT_EQ v 21 "next-test"
     ASSERT_EQ v2 33 "next-test-2"
 END
+
+
+
+
 
 a = NOW + 10
 SLEEP 10
