@@ -492,8 +492,20 @@ myList = [
 expectedMyListJson = STRING ["DREW","oy"]
 ASSERT_EQ TO_JSON myList expectedMyListJson "json-mylist"
 
-a = NOW - 10
-PRINT a
+a = NOW
+SLEEP 5
+THEN "NEXT1" a
+NEXT1 a
+    PRINT "The value of a is:" a
+    b = NOW
+    PRINT "The value of b is:" b
+    diff = b - a
+    ASSERT_EQ (diff >= 5 AND diff <= 6) TRUE "5ms in future"
+END
+
+ADD 3 + 4 5 + 2
+ASSERT_EQ IT 14 "some operator precedence testing"
+
 
 a = NOW + 10
 SLEEP 10
