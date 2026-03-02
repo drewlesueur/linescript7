@@ -823,6 +823,7 @@ class Interpreter {
       EXEC_COMBINED: { arity: 1, fn: ([cmd]) => this.execCombined(cmd) },
       NOW: { arity: 0, fn: () => Date.now() },
       NEXT: { arity: 0, fn: () => this.callNextFunction() },
+      SELF: { arity: 0, fn: () => this.callSelfFunction() },
     };
   }
 
@@ -1191,6 +1192,12 @@ class Interpreter {
     if (idx === -1 || idx + 1 >= this.functionOrder.length) return null;
     const nextName = this.functionOrder[idx + 1];
     return this.callFunction(nextName, [], this.globalEnv, this.functions);
+  }
+
+  callSelfFunction() {
+    if (!this.callStack.length) return null;
+    const current = this.callStack[this.callStack.length - 1];
+    return this.callFunction(current, [], this.globalEnv, this.functions);
   }
 
   assign(target, value, env, functions) {
