@@ -520,6 +520,32 @@ ASSERT_EQ IT 11 "add-test-3"
 ADD (5 - 4 - 2) 12
 ASSERT_EQ IT 11 "add-test-4"
 
+# Array expressions with negation/subtraction/add/mul/div
+arrExpr1 = [10 -5 7]
+expectedArr1 = STRING [10,-5,7]
+ASSERT_EQ TO_JSON arrExpr1 expectedArr1 "arr-expr-neg-ident"
+
+a = 4
+arrExpr2 = [10 -a a + 2 a * 3 a / 2]
+expectedArr2 = STRING [10,-4,6,12,2]
+ASSERT_EQ TO_JSON arrExpr2 expectedArr2 "arr-expr-mixed-1"
+
+arrExpr3 = [1 + 2 10 - 3 8 * 2 9 / 3]
+expectedArr3 = STRING [3,7,16,3]
+ASSERT_EQ TO_JSON arrExpr3 expectedArr3 "arr-expr-mixed-2"
+
+arrExpr4 = [10 - 5 6 + 4 9 * 2 8 / 4]
+expectedArr4 = STRING [5,10,18,2]
+ASSERT_EQ TO_JSON arrExpr4 expectedArr4 "arr-expr-spaced-sub"
+
+arrExpr5 = [-1 -2 -3]
+expectedArr5 = STRING [-1,-2,-3]
+ASSERT_EQ TO_JSON arrExpr5 expectedArr5 "arr-expr-negatives"
+
+arrExpr6 = [(-1) (2 + 3) (10 - 4) (8 / 4)]
+expectedArr6 = STRING [-1,5,6,2]
+ASSERT_EQ TO_JSON arrExpr6 expectedArr6 "arr-expr-parens"
+
 a = NOW + 10
 SLEEP 10
 THEN "DONE_SLEEP" "hi" "bye"
