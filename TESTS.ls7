@@ -494,7 +494,7 @@ ASSERT_EQ TO_JSON myList expectedMyListJson "json-mylist"
 
 a = NOW
 SLEEP 5
-THEN "NEXT1" a
+THEN NEXT1 a
 NEXT1 a
     PRINT "The value of a is:" a
     b = NOW
@@ -612,7 +612,7 @@ END
 
 a = NOW + 10
 SLEEP 10
-THEN "DONE_SLEEP" "hi" "bye"
+THEN DONE_SLEEP "hi" "bye"
 DONE_SLEEP message1 message2
     ASSERT_EQ message1 "hi" "params-on-then-1"
     ASSERT_EQ message2 "bye" "params-on-then-2"
