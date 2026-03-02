@@ -443,6 +443,7 @@ class Parser {
         }
       }
       const op = this.peekOperator();
+      if (this.argStopOnMinus && op === "-" && this.lexer.peek(1).type === "NUMBER") break;
       const prec = this.getPrecedence(op);
       if (prec <= precedence) break;
       this.lexer.next();
@@ -487,12 +488,17 @@ class Parser {
         const args = [];
         if (arity === 0 && !this.nonGreedyArity0.has(name)) {
           while (!this.isArgBoundary()) {
-            args.push(this.parseExpression(9));
+            args.push(this.parseArgExpression(0));
           }
         } else {
           for (let i = 0; i < arity; i += 1) {
             if (this.isArgBoundary()) break;
-            args.push(this.parseExpression(9));
+            if (arity === 1) {
+              args.push(this.parseExpression(9));
+            } else {
+              const remaining = arity - i - 1;
+              args.push(this.parseArgExpression(remaining));
+            }
           }
         }
         return this.parsePostfix({ type: "Call", name, args });
@@ -533,6 +539,14 @@ class Parser {
     }
 
     throw new Error(`Unexpected token: ${t.type} ${t.value || ""}`);
+  }
+
+  parseArgExpression(remainingArgs) {
+    const prev = this.argStopOnMinus;
+    this.argStopOnMinus = remainingArgs > 0;
+    const expr = this.parseExpression(0);
+    this.argStopOnMinus = prev;
+    return expr;
   }
 
   parsePostfix(expr) {
