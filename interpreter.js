@@ -256,9 +256,10 @@ function preprocess(source) {
 }
 
 class Parser {
-  constructor(lexer, functionArity) {
+  constructor(lexer, functionArity, functionVariadic) {
     this.lexer = lexer;
     this.functionArity = functionArity;
+    this.functionVariadic = functionVariadic || new Set();
     // Non-greedy 0-arity functions are value producers (NOW, IT, SWAP, etc.).
     // Variadic/arg-consuming builtins (CALL, THEN, etc.) should remain greedy.
     this.nonGreedyArity0 = new Set(["IT", "SWAP", "NOW"]);
@@ -505,6 +506,7 @@ class Parser {
       this.lexer.next();
       if (this.functionArity[name] !== undefined) {
         const arity = this.functionArity[name];
+        const isVariadic = this.functionVariadic.has(name);
         const args = [];
         if (name === "THEN") {
           if (!this.isArgBoundary()) {
@@ -532,6 +534,11 @@ class Parser {
               // 9 = parse only a single atomic expr (don't consume binary ops).
               args.push(this.parseExpression(9));
             } else {
+              args.push(this.parseExpression(0));
+            }
+          }
+          if (isVariadic) {
+            while (!this.isArgBoundary()) {
               args.push(this.parseExpression(0));
             }
           }
@@ -849,9 +856,9 @@ class Interpreter {
 
   async run(source) {
     const { source: pre, stringLiterals } = preprocess(source);
-    const functionArity = this.collectFunctionArity(pre);
+    const { arity: functionArity, variadic: functionVariadic } = this.collectFunctionArity(pre);
     const lexer = new Lexer(pre, stringLiterals);
-    const parser = new Parser(lexer, functionArity);
+    const parser = new Parser(lexer, functionArity, functionVariadic);
     const program = parser.parseProgram();
     const globalEnv = new Environment();
     this.globalEnv = globalEnv;
@@ -878,8 +885,10 @@ class Interpreter {
 
   collectFunctionArity(source) {
     const arity = {};
+    const variadic = new Set();
     for (const [name, def] of Object.entries(this.builtins)) {
       arity[name] = def.arity;
+      if (def.variadic) variadic.add(name);
     }
     const lines = source.split(/\r?\n/);
     for (const line of lines) {
@@ -890,7 +899,7 @@ class Interpreter {
       const params = paramsRaw ? paramsRaw.split(/\s+/) : [];
       arity[name] = params.length;
     }
-    return arity;
+    return { arity, variadic };
   }
 
   execBlock(stmts, env, functions) {
