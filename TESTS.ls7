@@ -546,6 +546,15 @@ arrExpr6 = [(-1) (2 + 3) (10 - 4) (8 / 4)]
 expectedArr6 = STRING [-1,5,6,2]
 ASSERT_EQ TO_JSON arrExpr6 expectedArr6 "arr-expr-parens"
 
+
+a = 20
+ASSERT_EQ -a -20 "negative-20"
+ASSERT_EQ -(a - a + a) -20 "negative-20-1"
+
+a = 20
+ASSERT_EQ -a -20 "negative-20-2"
+ASSERT_EQ -(-(a - a + a)) 20 "positive-20-3"
+
 a = NOW + 10
 SLEEP 10
 THEN "DONE_SLEEP" "hi" "bye"
@@ -553,8 +562,6 @@ DONE_SLEEP message1 message2
     ASSERT_EQ message1 "hi" "params-on-then-1"
     ASSERT_EQ message2 "bye" "params-on-then-2"
     FINALIZE
-END
-
 FINALIZE
     IF failures IS 0
         PRINT STRING ALL TESTS PASSED
