@@ -494,6 +494,7 @@ class Parser {
           for (let i = 0; i < arity; i += 1) {
             if (this.isArgBoundary()) break;
             if (arity === 1) {
+              // 9 = parse only a single atomic expr (don't consume binary ops).
               args.push(this.parseExpression(9));
             } else {
               const remaining = arity - i - 1;
