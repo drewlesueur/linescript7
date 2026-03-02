@@ -701,6 +701,8 @@ class Interpreter {
     this.output = [];
     this.stack = [];
     this.stackFrameBases = [];
+    this.callStack = [];
+    this.functionOrder = [];
     this.pendingTimers = 0;
     this.timerResolve = null;
     this.asyncErrors = [];
@@ -820,6 +822,7 @@ class Interpreter {
       EXEC2: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, false) },
       EXEC_COMBINED: { arity: 1, fn: ([cmd]) => this.execCombined(cmd) },
       NOW: { arity: 0, fn: () => Date.now() },
+      NEXT: { arity: 0, fn: () => this.callNextFunction() },
     };
   }
 
@@ -841,6 +844,7 @@ class Interpreter {
     for (const stmt of program.body) {
       if (stmt.type === "FuncDef") {
         functions.set(stmt.name, { arity: stmt.params.length, node: stmt });
+        this.functionOrder.push(stmt.name);
       }
     }
 
@@ -1164,15 +1168,29 @@ class Interpreter {
       for (const v of extras) this.stack.push(v);
     }
     if (fn.fn) return fn.fn(args);
-    const local = new Environment(this.globalEnv);
-    for (let i = 0; i < fn.node.params.length; i += 1) {
-      local.define(fn.node.params[i], args[i]);
+    this.callStack.push(name);
+    try {
+      const local = new Environment(this.globalEnv);
+      for (let i = 0; i < fn.node.params.length; i += 1) {
+        local.define(fn.node.params[i], args[i]);
+      }
+      const res = this.execBlock(fn.node.body, local, functions);
+      if (pushedFrame) this.stackFrameBases.pop();
+      if (res.type === "goto") throw new Error(`Unknown label: ${res.label}`);
+      if (res.type === "return") return res.value;
+      return res.value;
+    } finally {
+      this.callStack.pop();
     }
-    const res = this.execBlock(fn.node.body, local, functions);
-    if (pushedFrame) this.stackFrameBases.pop();
-    if (res.type === "goto") throw new Error(`Unknown label: ${res.label}`);
-    if (res.type === "return") return res.value;
-    return res.value;
+  }
+
+  callNextFunction() {
+    if (!this.callStack.length) return null;
+    const current = this.callStack[this.callStack.length - 1];
+    const idx = this.functionOrder.indexOf(current);
+    if (idx === -1 || idx + 1 >= this.functionOrder.length) return null;
+    const nextName = this.functionOrder[idx + 1];
+    return this.callFunction(nextName, [], this.globalEnv, this.functions);
   }
 
   assign(target, value, env, functions) {
