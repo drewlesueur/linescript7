@@ -241,6 +241,7 @@ class Parser {
     // Non-greedy 0-arity functions are value producers (NOW, IT, SWAP, etc.).
     // Variadic/arg-consuming builtins (CALL, THEN, etc.) should remain greedy.
     this.nonGreedyArity0 = new Set(["IT", "SWAP", "NOW"]);
+    this.parenDepth = 0;
   }
 
   parseProgram() {
@@ -443,7 +444,7 @@ class Parser {
         }
       }
       const op = this.peekOperator();
-      if (this.argStopOnMinus && op === "-" && this.lexer.peek(1).type === "NUMBER") break;
+      if (this.argStopOnMinus && this.parenDepth === 0 && op === "-" && this.lexer.peek(1).type === "NUMBER") break;
       const prec = this.getPrecedence(op);
       if (prec <= precedence) break;
       this.lexer.next();
@@ -455,8 +456,10 @@ class Parser {
 
   parsePrefix() {
     if (this.match("OP", "(")) {
+      this.parenDepth += 1;
       const expr = this.parseExpression();
       this.expect("OP", ")");
+      this.parenDepth -= 1;
       return expr;
     }
     if (this.match("OP", "-")) {
