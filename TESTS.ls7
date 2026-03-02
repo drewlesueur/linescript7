@@ -506,6 +506,19 @@ END
 ADD 3 + 4 5 + 2
 ASSERT_EQ IT 14 "some operator precedence testing"
 
+a = 3
+ADD a - a -a
+ASSERT_EQ IT -3 "add-test-1"
+
+
+ADD 1 12
+ASSERT_EQ IT 13 "add-test-2"
+
+ADD -1 12
+ASSERT_EQ IT 11 "add-test-3"
+
+ADD (5 - 4 - 2) 12
+ASSERT_EQ IT 11 "add-test-4"
 
 a = NOW + 10
 SLEEP 10
