@@ -1200,6 +1200,9 @@ class Interpreter {
     return this.callFunctionWithValues(current, args);
   }
 
+  // NOTE: This mirrors callFunction semantics but accepts concrete values (not AST).
+  // We could consolidate with invokeFunctionByName/callFunction by adding a shared
+  // "evaluate or pass-through" path to avoid duplication.
   callFunctionWithValues(name, values) {
     const fn = this.functions.get(name);
     if (!fn) throw new Error(`Unknown function: ${name}`);

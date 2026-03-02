@@ -596,6 +596,20 @@ a = 20
 ASSERT_EQ -a -20 "negative-20-2"
 ASSERT_EQ -(-(a - a + a)) 20 "positive-20-3"
 
+
+STUFF
+STUFF
+    a = 1
+    NEXT a + 10
+STUFF2 v
+    NEXT v + 10 33
+SUTFF3 v v2
+    ASSERT_EQ v 21 "next-test"
+    ASSERT_EQ v2 33 "next-test-2"
+END
+
+    
+
 a = NOW + 10
 SLEEP 10
 THEN "DONE_SLEEP" "hi" "bye"
