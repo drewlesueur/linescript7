@@ -62,6 +62,33 @@ class Lexer {
         continue;
       }
 
+      const two = s.slice(this.pos, this.pos + 2);
+      if ([">=", "<=", "==", "!=", "+=", "-=", "*=", "/="].includes(two)) {
+        this.tokens.push({ type: "OP", value: two });
+        this.pos += 2;
+        continue;
+      }
+
+      if (c === "-") {
+        const next = s[this.pos + 1] || "";
+        if (isNum(next)) {
+          let start = this.pos;
+          this.pos += 1;
+          while (this.pos < s.length && /[0-9.]/.test(s[this.pos])) this.pos += 1;
+          const raw = s.slice(start, this.pos);
+          this.tokens.push({ type: "NUMBER", value: Number(raw) });
+          continue;
+        }
+        if (isAlpha(next) || next === "(") {
+          this.tokens.push({ type: "OP", value: "NEG" });
+          this.pos += 1;
+          continue;
+        }
+        this.tokens.push({ type: "OP", value: "-" });
+        this.pos += 1;
+        continue;
+      }
+
       if (isNum(c)) {
         let start = this.pos;
         while (this.pos < s.length && /[0-9.]/.test(s[this.pos])) this.pos += 1;
@@ -82,13 +109,7 @@ class Lexer {
         continue;
       }
 
-      const two = s.slice(this.pos, this.pos + 2);
-      if ([">=", "<=", "==", "!=", "+=", "-=", "*=", "/="].includes(two)) {
-        this.tokens.push({ type: "OP", value: two });
-        this.pos += 2;
-        continue;
-      }
-      if (["+", "-", "*", "/", "=", ">", "<", ".", ",", ":", "[", "]", "{", "}", "(", ")", ";"].includes(c)) {
+      if (["+", "*", "/", "=", ">", "<", ".", ",", ":", "[", "]", "{", "}", "(", ")", ";"].includes(c)) {
         this.tokens.push({ type: "OP", value: c });
         this.pos += 1;
         continue;
@@ -241,7 +262,6 @@ class Parser {
     // Non-greedy 0-arity functions are value producers (NOW, IT, SWAP, etc.).
     // Variadic/arg-consuming builtins (CALL, THEN, etc.) should remain greedy.
     this.nonGreedyArity0 = new Set(["IT", "SWAP", "NOW"]);
-    this.parenDepth = 0;
   }
 
   parseProgram() {
@@ -444,7 +464,6 @@ class Parser {
         }
       }
       const op = this.peekOperator();
-      if (this.argStopOnMinus && this.parenDepth === 0 && op === "-" && this.lexer.peek(1).type === "NUMBER") break;
       const prec = this.getPrecedence(op);
       if (prec <= precedence) break;
       this.lexer.next();
@@ -456,13 +475,11 @@ class Parser {
 
   parsePrefix() {
     if (this.match("OP", "(")) {
-      this.parenDepth += 1;
       const expr = this.parseExpression();
       this.expect("OP", ")");
-      this.parenDepth -= 1;
       return expr;
     }
-    if (this.match("OP", "-")) {
+    if (this.match("OP", "NEG")) {
       return { type: "Unary", op: "-", expr: this.parseExpression(8) };
     }
     if (this.matchKeyword("NOT")) {
@@ -491,7 +508,7 @@ class Parser {
         const args = [];
         if (arity === 0 && !this.nonGreedyArity0.has(name)) {
           while (!this.isArgBoundary()) {
-            args.push(this.parseArgExpression(0));
+            args.push(this.parseExpression(0));
           }
         } else {
           for (let i = 0; i < arity; i += 1) {
@@ -500,8 +517,7 @@ class Parser {
               // 9 = parse only a single atomic expr (don't consume binary ops).
               args.push(this.parseExpression(9));
             } else {
-              const remaining = arity - i - 1;
-              args.push(this.parseArgExpression(remaining));
+              args.push(this.parseExpression(0));
             }
           }
         }
@@ -543,14 +559,6 @@ class Parser {
     }
 
     throw new Error(`Unexpected token: ${t.type} ${t.value || ""}`);
-  }
-
-  parseArgExpression(remainingArgs) {
-    const prev = this.argStopOnMinus;
-    this.argStopOnMinus = remainingArgs > 0;
-    const expr = this.parseExpression(0);
-    this.argStopOnMinus = prev;
-    return expr;
   }
 
   parsePostfix(expr) {
