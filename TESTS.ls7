@@ -608,15 +608,13 @@ SUTFF3 v v2
     ASSERT_EQ v2 33 "next-test-2"
 END
 
-    
-
 a = NOW + 10
 SLEEP 10
 THEN DONE_SLEEP "hi" "bye"
 DONE_SLEEP message1 message2
     ASSERT_EQ message1 "hi" "params-on-then-1"
     ASSERT_EQ message2 "bye" "params-on-then-2"
-    FINALIZE
+    NEXT
 FINALIZE
     IF failures IS 0
         PRINT STRING ALL TESTS PASSED

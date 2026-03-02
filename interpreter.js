@@ -1535,7 +1535,7 @@ class Interpreter {
         const callbacks = p.callbacks.slice();
         p.callbacks.length = 0;
         for (const cb of callbacks) {
-          this.invokeFunctionByName(cb.name, cb.args);
+          this.callFunctionWithValues(cb.name, cb.args);
         }
       } catch (err) {
         this.asyncErrors.push(err);
@@ -1570,7 +1570,7 @@ class Interpreter {
     }
     if (typeof name !== "string") throw new Error("THEN function name must be string");
     if (promise.done) {
-      return this.invokeFunctionByName(name, fnArgs);
+      return this.callFunctionWithValues(name, fnArgs);
     }
     promise.callbacks.push({ name, args: fnArgs });
     return promise;
