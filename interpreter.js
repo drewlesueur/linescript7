@@ -506,7 +506,22 @@ class Parser {
       if (this.functionArity[name] !== undefined) {
         const arity = this.functionArity[name];
         const args = [];
-        if (arity === 0 && !this.nonGreedyArity0.has(name)) {
+        if (name === "THEN") {
+          if (!this.isArgBoundary()) {
+            if (this.check("IDENT")) {
+              const fnName = this.lexer.next().value;
+              args.push({ type: "Literal", value: fnName });
+            } else if (this.match("OP", "(")) {
+              args.push(this.parseExpression(0));
+              this.expect("OP", ")");
+            } else {
+              args.push(this.parseExpression(0));
+            }
+          }
+          while (!this.isArgBoundary()) {
+            args.push(this.parseExpression(0));
+          }
+        } else if (arity === 0 && !this.nonGreedyArity0.has(name)) {
           while (!this.isArgBoundary()) {
             args.push(this.parseExpression(0));
           }
