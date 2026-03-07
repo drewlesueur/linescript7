@@ -737,6 +737,7 @@ class Interpreter {
 
   createBuiltins() {
     return {
+      EXIT: { arity: 0, noStack: true, fn: () => this.exitScript() },
       PRINT: { arity: 0, variadic: true, noStack: true, fn: (args) => {
         let values = args;
         if (values.length === 0) {
@@ -876,9 +877,16 @@ class Interpreter {
       }
     }
 
-    const topRes = this.execBlock(program.body, globalEnv, functions);
-    if (topRes && topRes.type === "goto") throw new Error(`Unknown label: ${topRes.label}`);
-    await this.waitForTimers();
+    let topRes;
+    try {
+      topRes = this.execBlock(program.body, globalEnv, functions);
+      if (topRes && topRes.type === "goto") throw new Error(`Unknown label: ${topRes.label}`);
+      await this.waitForTimers();
+    } catch (err) {
+      if (!this.isExitSignal(err)) throw err;
+      this.cancelTimers();
+      return { env: globalEnv, output: this.output.slice(), exited: true, exitCode: err.code };
+    }
     if (this.asyncErrors.length) throw this.asyncErrors[0];
     return { env: globalEnv, output: this.output.slice() };
   }
@@ -1605,6 +1613,30 @@ class Interpreter {
     return new Promise((resolve) => {
       this.timerResolve = resolve;
     });
+  }
+
+  exitScript(code = 0) {
+    const err = new Error("Script exited");
+    err.__ls7_exit = true;
+    err.code = this.toNumber(code);
+    throw err;
+  }
+
+  isExitSignal(err) {
+    return !!(err && typeof err === "object" && err.__ls7_exit === true);
+  }
+
+  cancelTimers() {
+    for (const record of this.timers.values()) {
+      clearTimeout(record.timeoutId);
+    }
+    this.timers.clear();
+    this.pendingTimers = 0;
+    if (this.timerResolve) {
+      const resolve = this.timerResolve;
+      this.timerResolve = null;
+      resolve();
+    }
   }
 
   invokeFunctionByName(name, args) {

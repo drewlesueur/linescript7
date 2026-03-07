@@ -1,3 +1,6 @@
+# How to run:
+# node interpreter.js DEMO.ls7
+
 # plan
 # * connect to db
 # * query data
@@ -6,121 +9,131 @@
 
 
 SLEEP 300
-THEN "AFTER_SLEEP"
+THEN NEXT
 AFTER_SLEEP
-
+    PRINT STRING slept 300ms
 END
 
+PRINT STRING waiting
 
-SLEEP 1500
-THEN "AFTER_SLEEP" "hi"
-AFTER_SLEEP message
-    PRINT message
-END
-
-DEMO_PROCESS s
-    s.promise = PROMISE
-    CONNECT "localhost:3030" "admin" "admin123" 
-    THEN .ON_CONNECT s
-ON_CONNECT s conn
-    s.conn = conn
-    DO_QUERY conn STRING SELECT * FROM employees WHERE score > 45
-    THEN .ON_RESULT s 
-ON_RESULT s result
-    s.mainResult = result
-    s.subResults = []
-    FOR i FROM 1 to 10
-        query = %STRING SELECT * FROM accounts WHERE id = %{i}
-        DO_QUERY s.conn query
-        ON_ACCOUNT_RESULT s i
-    END
-    s.i = i
-ON_ACCOUNT_RESULT s i result
-    s.subResults[i] = result 
-    s.i += 1
-    IF i > 100
-        DONE_ACCOUNTS s
-        return
-    END
-    query = %STRING SELECT * FROM accounts WHERE id = %{s.i}
-    DO_QUERY s.conn query  
-    THEN .ON_ACCOUNT_RESULT s s.i
-DONE_ACCOUNTS s
-    [
-        DO_QUERY s.conn STRING SELECT * FROM jobs ORDER BY updated_at DESC LIMIT 1
-        DO_QUERY s.conn STRING SELECT * FROM invoices ORDER BY updated_at DESC LIMIT 1
-        DO_QUERY s.conn STRING SELECT * FROM tickets ORDER BY updated_at DESC LIMIT 1
-    ]
-    THEN ~ ON_LAST_STEP_DONE s
-ON_LAST_STEP_DONE s results
-    RESOLVE s.promise {
-        mainResult: s.mainResult
-        subResults: s.subResults
-        jobs: results.1
-        invoices: results.2
-        tickets: results.3
-    }
-END
-
-
-DEMO_PROCESS s
-    s.promise = PROMISE
-    CONNECT "localhost:3030" "admin" "admin123" 
-THEN s conn
-    s.conn = conn
-    DO_QUERY conn query SELECT * FROM employees WHERE score > 45
-THEN s result
-    s.mainResult = result
-    s.subResults = []
-    FOR i FROM 1 to 10
-        query = %STRING SELECT * FROM accounts WHERE id = %{i}
-        DO_QUERY s.conn query
-        *ON_ACCOUNT_RESULT s i
-    END
-    s.i = i
-ON_ACCOUNT_RESULT s i result
-    s.subResults[i] = result 
-    s.i += 1
-    IF i > 100
-        DONE_ACCOUNTS s
-        return
-    END
-    query = %STRING SELECT * FROM accounts WHERE id = %{s.i}
-    DO_QUERY s.conn query  
-    THEN ON_ACCOUNT_RESULT s s.i
-DONE_ACCOUNTS s
-    [
-        DO_QUERY s.conn STRING SELECT * FROM jobs ORDER BY updated_at DESC LIMIT 1
-        DO_QUERY s.conn STRING SELECT * FROM invoices ORDER BY updated_at DESC LIMIT 1
-        DO_QUERY s.conn STRING SELECT * FROM tickets ORDER BY updated_at DESC LIMIT 1
-    ]
-    => *ON_LAST_STEP_DONE s
-ON_LAST_STEP_DONE s results
-    RESOLVE s.promise {
-        mainResult: s.mainResult
-        subResults: s.subResults
-        jobs: results.1
-        invoices: results.2
-        tickets: results.3
-    }
-END
-
-
-# long polling
-HTTP_HANDLER
-    IF MATCHES_PATH path "/"
-        
-    END
-END
-
+EXIT
 
 MAIN
-    DEMO_PROCESS
-    THEN AFTER_PROCESS
-AFTER_PROCESS
-    
-END
+    READ_FILE "myfile.txt" WHILE
+ON data
+    h
 
 
 
 
+
+// STRING
+//     SLEEP 1500
+//     THEN "AFTER_SLEEP" "hi"
+//     AFTER_SLEEP message
+//         PRINT message
+//     END
+//     
+//     DEMO_PROCESS s
+//         s.promise = PROMISE
+//         CONNECT "localhost:3030" "admin" "admin123" 
+//         THEN ON_CONNECT s
+//     ON_CONNECT s conn
+//         s.conn = conn
+//         DO_QUERY conn STRING SELECT * FROM employees WHERE score > 45
+//         THEN ON_RESULT s 
+//     ON_RESULT s result
+//         s.mainResult = result
+//         s.subResults = []
+//         FOR i FROM 1 to 10
+//             query = %STRING SELECT * FROM accounts WHERE id = %{i}
+//             DO_QUERY s.conn query
+//             ON_ACCOUNT_RESULT s i
+//         END
+//         s.i = i
+//     ON_ACCOUNT_RESULT s i result
+//         s.subResults[i] = result 
+//         s.i += 1
+//         IF i > 100
+//             DONE_ACCOUNTS s
+//             return
+//         END
+//         query = %STRING SELECT * FROM accounts WHERE id = %{s.i}
+//         DO_QUERY s.conn query  
+//         THEN .ON_ACCOUNT_RESULT s s.i
+//     DONE_ACCOUNTS s
+//         [
+//             DO_QUERY s.conn STRING SELECT * FROM jobs ORDER BY updated_at DESC LIMIT 1
+//             DO_QUERY s.conn STRING SELECT * FROM invoices ORDER BY updated_at DESC LIMIT 1
+//             DO_QUERY s.conn STRING SELECT * FROM tickets ORDER BY updated_at DESC LIMIT 1
+//         ]
+//         THEN ~ ON_LAST_STEP_DONE s
+//     ON_LAST_STEP_DONE s results
+//         RESOLVE s.promise {
+//             mainResult: s.mainResult
+//             subResults: s.subResults
+//             jobs: results.1
+//             invoices: results.2
+//             tickets: results.3
+//         }
+//     END
+//     
+//     
+//     DEMO_PROCESS s
+//         s.promise = PROMISE
+//         CONNECT "localhost:3030" "admin" "admin123" 
+//     THEN s conn
+//         s.conn = conn
+//         DO_QUERY conn query SELECT * FROM employees WHERE score > 45
+//     THEN s result
+//         s.mainResult = result
+//         s.subResults = []
+//         FOR i FROM 1 to 10
+//             query = %STRING SELECT * FROM accounts WHERE id = %{i}
+//             DO_QUERY s.conn query
+//             *ON_ACCOUNT_RESULT s i
+//         END
+//         s.i = i
+//     ON_ACCOUNT_RESULT s i result
+//         s.subResults[i] = result 
+//         s.i += 1
+//         IF i > 100
+//             DONE_ACCOUNTS s
+//             return
+//         END
+//         query = %STRING SELECT * FROM accounts WHERE id = %{s.i}
+//         DO_QUERY s.conn query  
+//         THEN ON_ACCOUNT_RESULT s s.i
+//     DONE_ACCOUNTS s
+//         [
+//             DO_QUERY s.conn STRING SELECT * FROM jobs ORDER BY updated_at DESC LIMIT 1
+//             DO_QUERY s.conn STRING SELECT * FROM invoices ORDER BY updated_at DESC LIMIT 1
+//             DO_QUERY s.conn STRING SELECT * FROM tickets ORDER BY updated_at DESC LIMIT 1
+//         ]
+//         => *ON_LAST_STEP_DONE s
+//     ON_LAST_STEP_DONE s results
+//         RESOLVE s.promise {
+//             mainResult: s.mainResult
+//             subResults: s.subResults
+//             jobs: results.1
+//             invoices: results.2
+//             tickets: results.3
+//         }
+//     END
+//     
+//     
+//     # long polling
+//     HTTP_HANDLER
+//         IF MATCHES_PATH path "/"
+//             
+//         END
+//     END
+//     
+//     
+//     MAIN
+//         DEMO_PROCESS
+//         THEN AFTER_PROCESS
+//     AFTER_PROCESS
+//         
+//     END
+// END

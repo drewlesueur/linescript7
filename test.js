@@ -31,6 +31,17 @@ const source = fs.readFileSync("EXAMPLE.txt", "utf8");
     "DR",
   ]);
 
+  const exitResult = await runScript([
+    "x = 1",
+    "EXIT",
+    "x = 2",
+    "PRINT \"after\"",
+  ].join("\n"));
+  assert.strictEqual(exitResult.env.get("x"), 1);
+  assert.deepStrictEqual(exitResult.output, []);
+  assert.strictEqual(exitResult.exited, true);
+  assert.strictEqual(exitResult.exitCode, 0);
+
   console.log("All tests passed.");
 })().catch((err) => {
   console.error(err && err.stack ? err.stack : String(err));
