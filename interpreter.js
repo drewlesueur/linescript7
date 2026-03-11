@@ -850,7 +850,7 @@ class Interpreter {
       EXEC2: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, false) },
       EXEC_COMBINED: { arity: 1, fn: ([cmd]) => this.execCombined(cmd) },
       NOW: { arity: 0, fn: () => Date.now() },
-      NEXT: { arity: 0, variadic: true, fn: (args) => this.callNextFunction(args) },
+      DO: { arity: 0, variadic: true, fn: (args) => this.callNextFunction(args) },
       SELF: { arity: 0, variadic: true, fn: (args) => this.callSelfFunction(args) },
     };
   }
@@ -960,7 +960,7 @@ class Interpreter {
             expr.args.length >= 1 &&
             expr.args[0] &&
             expr.args[0].type === "Literal" &&
-            expr.args[0].value === "NEXT"
+            expr.args[0].value === "DO"
           ) {
             expr.resolvedNextName = nextName;
           }
@@ -1662,7 +1662,7 @@ class Interpreter {
         const callbacks = p.callbacks.slice();
         p.callbacks.length = 0;
         for (const cb of callbacks) {
-          if (cb.name === "NEXT") {
+          if (cb.name === "DO") {
             if (cb.caller) {
               this.callNextFunctionFrom(cb.caller, cb.args);
             } else if (cb.nextName) {
@@ -1707,7 +1707,7 @@ class Interpreter {
     }
     if (typeof name !== "string") throw new Error("THEN function name must be string");
     if (promise.done) {
-      if (name === "NEXT") {
+      if (name === "DO") {
         if (caller) return this.callNextFunctionFrom(caller, fnArgs);
         if (nextName) return this.callFunctionWithValues(nextName, fnArgs);
         return null;
