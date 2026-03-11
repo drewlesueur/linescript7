@@ -383,6 +383,22 @@ LSDONE2 stdOut stdErr code
 END
 EXEC_DEMO2
 
+
+EXEC_DEMO3
+    p = EXEC "sh -c 'printf demo2_out; printf demo2_err 1>&2; exit 7'"
+    THEN (p) "LSDONE3" "a" "b"
+END
+LSDONE3 paramA paramB stdOut stdErr code
+    ASSERT_EQ paramA "a" "exec-promise-param-a"
+    ASSERT_EQ paramB "b" "exec-promise-param-b"
+    ASSERT_EQ stdOut "demo2_out" "exec-promise-stdout"
+    ASSERT_EQ stdErr "demo2_err" "exec-promise-stderr"
+    ASSERT_EQ code 7 "exec-promise-code"
+END
+EXEC_DEMO3
+
+
+
 "howdy"; SLICE 2 4; UPPER; ASSERT_EQ IT "OWD" "semiconolns"
 
 count = LEN "yo" + LEN "woa"
