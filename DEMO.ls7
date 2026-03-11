@@ -14,9 +14,34 @@ AFTER_SLEEP
     PRINT STRING slept 300ms
 END
 
-EXEC_DEMO
-    EXEC "ls -lah" THEN DO
-LSDONE stdOut stdErr code
+// EXEC_DEMO
+// EXEC_DEMO
+//     p = EXEC "ls -lah"
+//     THEN (p) "LSDONE" "cool"
+// LSDONE firstVar stdOut stdErr code
+//     PRINT "first var is" firstVar
+//     PRINT "std out is" stdOut
+//     PRINT "std err is" stdErr
+//     PRINT "code is" code
+// END
+
+EXEC_DEMO2
+EXEC_DEMO2
+    p = EXEC "ls -lah"
+    THEN (p) "LSDONE2"
+LSDONE2 stdOut stdErr code
+    PRINT "first var is" firstVar
+    PRINT "std out is" stdOut
+    PRINT "std err is" stdErr
+    PRINT "code is" code
+END
+
+EXEC_DEMO3
+EXEC_DEMO3
+    EXEC "ls -lah"
+    THEN "LSDONE3" "cool"
+LSDONE3 firstVar stdOut stdErr code
+    PRINT "first var is" firstVar
     PRINT "std out is" stdOut
     PRINT "std err is" stdErr
     PRINT "code is" code
