@@ -1676,7 +1676,7 @@ class Interpreter {
     const callbacks = p.callbacks.slice();
     p.callbacks.length = 0;
     for (const cb of callbacks) {
-      const callbackArgs = cb.args.length ? cb.args : p.resolvedArgs;
+      const callbackArgs = cb.args.length ? cb.args.concat(p.resolvedArgs) : p.resolvedArgs;
       if (cb.name === "DO") {
         if (cb.caller) {
           this.callNextFunctionFrom(cb.caller, callbackArgs);
@@ -1714,7 +1714,7 @@ class Interpreter {
     }
     if (typeof name !== "string") throw new Error("THEN function name must be string");
     const resolvedArgs = Array.isArray(promise.resolvedArgs) ? promise.resolvedArgs : [];
-    const callbackArgs = fnArgs.length ? fnArgs : resolvedArgs;
+    const callbackArgs = fnArgs.length ? fnArgs.concat(resolvedArgs) : resolvedArgs;
     if (promise.done) {
       if (name === "DO") {
         if (caller) return this.callNextFunctionFrom(caller, callbackArgs);
