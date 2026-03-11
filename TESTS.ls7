@@ -397,6 +397,13 @@ LSDONE3 paramA paramB stdOut stdErr code
 END
 EXEC_DEMO3
 
+EXEC "sh -c 'printf out; printf err 1>&2; exit 3'" THEN "EXEC_DONE"
+EXEC_DONE stdOut stdErr code
+    ASSERT_EQ stdOut "out" "exec-stdout"
+    ASSERT_EQ stdErr "err" "exec-stderr"
+    ASSERT_EQ code 3 "exec-code"
+    
+END
 
 
 "howdy"; SLICE 2 4; UPPER; ASSERT_EQ IT "OWD" "semiconolns"
@@ -668,6 +675,20 @@ SUTFF3 v v2
     ASSERT_EQ v 21 "next-test"
     ASSERT_EQ v2 33 "next-test-2"
 END
+
+
+STUFF_WITH_SAME_NAME
+STUFF_WITH_SAME_NAME
+    a = 1
+    DO a + 10
+MYFUNC v
+    DO v + 10 33
+MYFUNC v v2
+    ASSERT_EQ v 21 "next-test-same-name"
+    ASSERT_EQ v2 33 "next-test-same-name-2"
+END
+
+
 
 
 
