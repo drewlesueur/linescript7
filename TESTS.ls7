@@ -589,6 +589,25 @@ END
 NEXT_C 2 3
 ASSERT_EQ next_arg_val 5 "next-args"
 
+then_next_flag = 0
+THEN_NEXT_A
+    SLEEP 5 THEN NEXT
+END
+THEN_NEXT_B
+    GLOBAL then_next_flag = 1
+END
+THEN_NEXT_A
+
+
+then_next_flag_2 = 0
+SLEEP 4
+THEN NEXT
+AFTER_SLEEP
+    GLOBAL then_next_flag_2 = 7
+END
+
+
+
 self_arg_val = 0
 SELF_ARG x
     IF x < 3
@@ -631,6 +650,8 @@ THEN DONE_SLEEP "hi" "bye"
 DONE_SLEEP message1 message2
     ASSERT_EQ message1 "hi" "params-on-then-1"
     ASSERT_EQ message2 "bye" "params-on-then-2"
+    ASSERT_EQ then_next_flag 1 "then-next-with-sleep"
+    ASSERT_EQ then_next_flag_2 2 "then-next-with-sleep-2"
     NEXT
 FINALIZE
     IF failures IS 0
