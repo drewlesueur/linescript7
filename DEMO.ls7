@@ -14,6 +14,15 @@ AFTER_SLEEP
     PRINT STRING slept 300ms
 END
 
+EXEC_DEMO
+    EXEC "ls -lah" THEN DO
+LSDONE stdOut stdErr code
+    PRINT "std out is" stdOut
+    PRINT "std err is" stdErr
+    PRINT "code is" code
+END
+
+
 PRINT STRING waiting
 
 

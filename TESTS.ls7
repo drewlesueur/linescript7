@@ -356,17 +356,21 @@ ASSERT_EQ IT "Hello, world" "stack-pipeline-5"
 popped = IT
 ASSERT_EQ popped "hello" "it-pop"
 
-# EXEC / EXEC2 / EXEC_COMBINED
-execOut = EXEC "printf hello"
-ASSERT_EQ execOut "hello" "exec-stdout"
+# EXEC (async; use THEN / THEN DO)
+EXEC "sh -c 'printf out; printf err 1>&2; exit 3'" THEN "EXEC_DONE"
+EXEC_DONE stdOut stdErr code
+    ASSERT_EQ stdOut "out" "exec-stdout"
+    ASSERT_EQ stdErr "err" "exec-stderr"
+    ASSERT_EQ code 3 "exec-code"
+    
+END
 
-execRes = EXEC2 "sh -c 'printf out; printf err 1>&2; exit 3'"
-ASSERT_EQ execRes.code 3 "exec2-code"
-ASSERT_EQ execRes.stdout "out" "exec2-stdout"
-ASSERT_EQ execRes.stderr "err" "exec2-stderr"
-
-combined = EXEC_COMBINED "sh -c 'printf out; printf err 1>&2'"
-ASSERT_EQ combined "outerr" "exec-combined"
+EXEC "sh -c 'printf hello'" THEN DO
+EXEC_DONE_DO stdOut stdErr code
+    ASSERT_EQ stdOut "hello" "exec-then-do-stdout"
+    ASSERT_EQ stdErr "" "exec-then-do-stderr"
+    ASSERT_EQ code 0 "exec-then-do-code"
+END
 
 "howdy"; SLICE 2 4; UPPER; ASSERT_EQ IT "OWD" "semiconolns"
 

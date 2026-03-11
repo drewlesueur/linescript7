@@ -846,9 +846,7 @@ class Interpreter {
         this.stack.push(a, b);
         return null;
       } },
-      EXEC: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, true) },
-      EXEC2: { arity: 1, fn: ([cmd]) => this.execCommand(cmd, false) },
-      EXEC_COMBINED: { arity: 1, fn: ([cmd]) => this.execCombined(cmd) },
+      EXEC: { arity: 1, fn: ([cmd]) => this.execCommand(cmd) },
       NOW: { arity: 0, fn: () => Date.now() },
       DO: { arity: 0, variadic: true, fn: (args) => this.callNextFunction(args) },
       SELF: { arity: 0, variadic: true, fn: (args) => this.callSelfFunction(args) },
@@ -1648,6 +1646,7 @@ class Interpreter {
       id,
       done: false,
       callbacks: [],
+      resolvedArgs: [],
     };
     this.pendingTimers += 1;
     const timeoutId = setTimeout(() => {
@@ -1657,21 +1656,7 @@ class Interpreter {
         return;
       }
       try {
-        const p = record.promise;
-        p.done = true;
-        const callbacks = p.callbacks.slice();
-        p.callbacks.length = 0;
-        for (const cb of callbacks) {
-          if (cb.name === "DO") {
-            if (cb.caller) {
-              this.callNextFunctionFrom(cb.caller, cb.args);
-            } else if (cb.nextName) {
-              this.callFunctionWithValues(cb.nextName, cb.args);
-            }
-          } else {
-            this.callFunctionWithValues(cb.name, cb.args);
-          }
-        }
+        this.resolveAsyncPromise(id, []);
       } catch (err) {
         this.asyncErrors.push(err);
       } finally {
@@ -1682,13 +1667,35 @@ class Interpreter {
     return promise;
   }
 
+  resolveAsyncPromise(id, resolvedArgs) {
+    const record = this.timers.get(id);
+    if (!record) return;
+    const p = record.promise;
+    p.done = true;
+    p.resolvedArgs = Array.isArray(resolvedArgs) ? resolvedArgs.slice() : [];
+    const callbacks = p.callbacks.slice();
+    p.callbacks.length = 0;
+    for (const cb of callbacks) {
+      const callbackArgs = cb.args.length ? cb.args : p.resolvedArgs;
+      if (cb.name === "DO") {
+        if (cb.caller) {
+          this.callNextFunctionFrom(cb.caller, callbackArgs);
+        } else if (cb.nextName) {
+          this.callFunctionWithValues(cb.nextName, callbackArgs);
+        }
+      } else {
+        this.callFunctionWithValues(cb.name, callbackArgs);
+      }
+    }
+  }
+
   thenPromise(args, resolvedNextName = null) {
     let promise = null;
     let name = null;
     let fnArgs = [];
     const caller = this.callStack.length ? this.callStack[this.callStack.length - 1] : null;
     const nextName = caller ? null : resolvedNextName;
-    // Promise detection relies on SLEEP-tagged objects with __ls7_promise === true.
+    // Promise detection relies on objects tagged with __ls7_promise === true.
     if (args.length >= 2 && args[0] && typeof args[0] === "object" && args[0].__ls7_promise === true) {
       promise = args[0];
       name = args[1];
@@ -1706,13 +1713,15 @@ class Interpreter {
       throw new Error("THEN expects promise object");
     }
     if (typeof name !== "string") throw new Error("THEN function name must be string");
+    const resolvedArgs = Array.isArray(promise.resolvedArgs) ? promise.resolvedArgs : [];
+    const callbackArgs = fnArgs.length ? fnArgs : resolvedArgs;
     if (promise.done) {
       if (name === "DO") {
-        if (caller) return this.callNextFunctionFrom(caller, fnArgs);
-        if (nextName) return this.callFunctionWithValues(nextName, fnArgs);
+        if (caller) return this.callNextFunctionFrom(caller, callbackArgs);
+        if (nextName) return this.callFunctionWithValues(nextName, callbackArgs);
         return null;
       }
-      return this.callFunctionWithValues(name, fnArgs);
+      return this.callFunctionWithValues(name, callbackArgs);
     }
     promise.callbacks.push({ name, args: fnArgs, caller, nextName });
     return promise;
@@ -1749,6 +1758,13 @@ class Interpreter {
   cancelTimers() {
     for (const record of this.timers.values()) {
       clearTimeout(record.timeoutId);
+      if (record.child && typeof record.child.kill === "function") {
+        try {
+          record.child.kill();
+        } catch (_) {
+          // ignore cleanup errors
+        }
+      }
     }
     this.timers.clear();
     this.pendingTimers = 0;
@@ -1788,37 +1804,55 @@ class Interpreter {
     return this.invokeFunctionByName(name, args);
   }
 
-  execCommand(cmd, throwOnNonZero) {
-    const { execSync, spawnSync } = require("child_process");
+  execCommand(cmd) {
+    const { spawn } = require("child_process");
     const command = this.toString(cmd);
-    try {
-      const out = execSync(command, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-      if (throwOnNonZero) return out;
-      return { stdout: out, stderr: "", code: 0 };
-    } catch (err) {
-      if (throwOnNonZero) {
-        const stderr = err.stderr ? err.stderr.toString("utf8") : "";
-        const message = stderr || err.message || "EXEC failed";
-        throw new Error(message.trim());
-      }
-      const stdout = err.stdout ? err.stdout.toString("utf8") : "";
-      const stderr = err.stderr ? err.stderr.toString("utf8") : "";
-      const code = typeof err.status === "number" ? err.status : 1;
-      return { stdout, stderr, code };
-    }
-  }
+    const id = this.nextTimerId++;
+    const promise = {
+      __ls7_promise: true,
+      id,
+      done: false,
+      callbacks: [],
+      resolvedArgs: [],
+    };
+    this.pendingTimers += 1;
 
-  execCombined(cmd) {
-    const { spawnSync } = require("child_process");
-    const command = this.toString(cmd);
-    const res = spawnSync(command, { shell: true, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-    if (res.error) throw new Error(res.error.message);
-    const output = `${res.stdout || ""}${res.stderr || ""}`;
-    if (res.status !== 0) {
-      const message = output.trim() || `EXEC_COMBINED failed with code ${res.status}`;
-      throw new Error(message);
+    let stdout = "";
+    let stderr = "";
+    let child = null;
+    try {
+      child = spawn(command, { shell: true, stdio: ["ignore", "pipe", "pipe"] });
+    } catch (err) {
+      this.pendingTimers = Math.max(0, this.pendingTimers - 1);
+      throw err;
     }
-    return output;
+
+    this.timers.set(id, { child, promise });
+    if (child.stdout) {
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk.toString("utf8");
+      });
+    }
+    if (child.stderr) {
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk.toString("utf8");
+      });
+    }
+    child.on("error", (err) => {
+      const msg = err && err.message ? err.message : String(err);
+      stderr += msg;
+    });
+    child.on("close", (code) => {
+      try {
+        const exitCode = typeof code === "number" ? code : 1;
+        this.resolveAsyncPromise(id, [stdout, stderr, exitCode]);
+      } catch (err) {
+        this.asyncErrors.push(err);
+      } finally {
+        this.finalizeTimer(id);
+      }
+    });
+    return promise;
   }
 
   substrValue(value, start, len) {
