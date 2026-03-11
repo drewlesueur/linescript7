@@ -871,8 +871,14 @@ class Interpreter {
 
     for (const stmt of program.body) {
       if (stmt.type === "FuncDef") {
-        functions.set(stmt.name, { arity: stmt.params.length, node: stmt });
-        this.functionOrder.push(stmt.name);
+        const fnDef = {
+          arity: stmt.params.length,
+          node: stmt,
+          name: stmt.name,
+          order: this.functionOrder.length,
+        };
+        functions.set(stmt.name, fnDef);
+        this.functionOrder.push(fnDef);
       }
     }
 
@@ -1304,7 +1310,7 @@ class Interpreter {
       if (name === "THEN") return this.thenPromise(args, callExpr ? callExpr.resolvedNextName : null);
       return fn.fn(args);
     }
-    this.callStack.push(name);
+    this.callStack.push(fn);
     try {
       const local = new Environment(this.globalEnv);
       for (let i = 0; i < fn.node.params.length; i += 1) {
@@ -1328,24 +1334,28 @@ class Interpreter {
 
   callNextFunctionFrom(current, args = []) {
     if (!current) return null;
-    const idx = this.functionOrder.indexOf(current);
+    let idx = -1;
+    if (typeof current === "object" && typeof current.order === "number") {
+      idx = current.order;
+    } else if (typeof current === "string") {
+      idx = this.functionOrder.findIndex((fn) => fn.name === current);
+    }
     if (idx === -1 || idx + 1 >= this.functionOrder.length) return null;
-    const nextName = this.functionOrder[idx + 1];
-    return this.callFunctionWithValues(nextName, args);
+    const nextFn = this.functionOrder[idx + 1];
+    return this.callFunctionDefWithValues(nextFn, args);
   }
 
   callSelfFunction(args = []) {
     if (!this.callStack.length) return null;
     const current = this.callStack[this.callStack.length - 1];
+    if (typeof current === "object" && current.node) return this.callFunctionDefWithValues(current, args);
     return this.callFunctionWithValues(current, args);
   }
 
   // NOTE: This mirrors callFunction semantics but accepts concrete values (not AST).
   // We could consolidate with invokeFunctionByName/callFunction by adding a shared
   // "evaluate or pass-through" path to avoid duplication.
-  callFunctionWithValues(name, values) {
-    const fn = this.functions.get(name);
-    if (!fn) throw new Error(`Unknown function: ${name}`);
+  callFunctionDefWithValues(fn, values) {
     const arity = fn.arity;
     const explicitCount = values.length;
     const args = values.slice();
@@ -1360,7 +1370,7 @@ class Interpreter {
     }
     if (args.length > arity) {
       if (fn.fn) {
-        if (!fn.variadic) throw new Error(`Too many args for ${name}`);
+        if (!fn.variadic) throw new Error(`Too many args for ${fn.name || "<builtin>"}`);
       } else {
         args.splice(arity);
       }
@@ -1369,7 +1379,7 @@ class Interpreter {
       const missing = arity - args.length;
       const base = this.stackFrameBases.length ? this.stackFrameBases[this.stackFrameBases.length - 1] : 0;
       const available = this.stack.length - base;
-      if (available < missing && !fn.stackOptional) throw new Error(`Not enough stack values for ${name}`);
+      if (available < missing && !fn.stackOptional) throw new Error(`Not enough stack values for ${fn.name || "<builtin>"}`);
       const pulled = [];
       const toPull = Math.min(missing, available);
       for (let i = 0; i < toPull; i += 1) pulled.push(this.stack.pop());
@@ -1383,7 +1393,7 @@ class Interpreter {
       for (const v of extras) this.stack.push(v);
     }
     if (fn.fn) return fn.fn(args);
-    this.callStack.push(name);
+    this.callStack.push(fn);
     try {
       const local = new Environment(this.globalEnv);
       for (let i = 0; i < fn.node.params.length; i += 1) {
@@ -1397,6 +1407,14 @@ class Interpreter {
     } finally {
       this.callStack.pop();
     }
+  }
+
+  callFunctionWithValues(nameOrFn, values) {
+    const fn = (nameOrFn && typeof nameOrFn === "object" && nameOrFn.node)
+      ? nameOrFn
+      : this.functions.get(nameOrFn);
+    if (!fn) throw new Error(`Unknown function: ${nameOrFn}`);
+    return this.callFunctionDefWithValues(fn, values);
   }
 
   assign(target, value, env, functions) {
