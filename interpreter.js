@@ -732,6 +732,7 @@ class Interpreter {
     this.nextTimerId = 1;
     this.random = options.random || (() => Math.random());
     this.onOutput = typeof options.onOutput === "function" ? options.onOutput : null;
+    this.currentExecContext = null;
     this.builtins = this.createBuiltins();
   }
 
@@ -922,7 +923,14 @@ class Interpreter {
     }
     for (let i = 0; i < stmts.length; i += 1) {
       const stmt = stmts[i];
-      const res = this.exec(stmt, env, functions);
+      const prevExecContext = this.currentExecContext;
+      this.currentExecContext = { stmts, index: i };
+      let res;
+      try {
+        res = this.exec(stmt, env, functions);
+      } finally {
+        this.currentExecContext = prevExecContext;
+      }
       if (res && res.type) {
         if (res.type === "return") return res;
         if (res.type === "break") return res;
@@ -938,6 +946,16 @@ class Interpreter {
       if (stmt.type === "ExprStmt") lastExpr = res;
     }
     return { type: "ok", value: lastExpr };
+  }
+
+  resolveNextNameFromCurrentContext() {
+    if (!this.currentExecContext) return null;
+    const { stmts, index } = this.currentExecContext;
+    for (let i = index + 1; i < stmts.length; i += 1) {
+      const stmt = stmts[i];
+      if (stmt && stmt.type === "FuncDef" && stmt.name) return stmt.name;
+    }
+    return null;
   }
 
   exec(stmt, env, functions) {
@@ -1563,7 +1581,11 @@ class Interpreter {
         p.callbacks.length = 0;
         for (const cb of callbacks) {
           if (cb.name === "NEXT") {
-            this.callNextFunctionFrom(cb.caller, cb.args);
+            if (cb.caller) {
+              this.callNextFunctionFrom(cb.caller, cb.args);
+            } else if (cb.nextName) {
+              this.callFunctionWithValues(cb.nextName, cb.args);
+            }
           } else {
             this.callFunctionWithValues(cb.name, cb.args);
           }
@@ -1583,6 +1605,7 @@ class Interpreter {
     let name = null;
     let fnArgs = [];
     const caller = this.callStack.length ? this.callStack[this.callStack.length - 1] : null;
+    const nextName = caller ? null : this.resolveNextNameFromCurrentContext();
     // Promise detection relies on SLEEP-tagged objects with __ls7_promise === true.
     if (args.length >= 2 && args[0] && typeof args[0] === "object" && args[0].__ls7_promise === true) {
       promise = args[0];
@@ -1602,10 +1625,14 @@ class Interpreter {
     }
     if (typeof name !== "string") throw new Error("THEN function name must be string");
     if (promise.done) {
-      if (name === "NEXT") return this.callNextFunctionFrom(caller, fnArgs);
+      if (name === "NEXT") {
+        if (caller) return this.callNextFunctionFrom(caller, fnArgs);
+        if (nextName) return this.callFunctionWithValues(nextName, fnArgs);
+        return null;
+      }
       return this.callFunctionWithValues(name, fnArgs);
     }
-    promise.callbacks.push({ name, args: fnArgs, caller });
+    promise.callbacks.push({ name, args: fnArgs, caller, nextName });
     return promise;
   }
 
