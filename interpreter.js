@@ -732,7 +732,6 @@ class Interpreter {
     this.nextTimerId = 1;
     this.random = options.random || (() => Math.random());
     this.onOutput = typeof options.onOutput === "function" ? options.onOutput : null;
-    this.currentExecContext = null;
     this.builtins = this.createBuiltins();
   }
 
@@ -862,6 +861,7 @@ class Interpreter {
     const lexer = new Lexer(pre, stringLiterals);
     const parser = new Parser(lexer, functionArity, functionVariadic);
     const program = parser.parseProgram();
+    this.annotateThenNextTargets(program.body);
     const globalEnv = new Environment();
     this.globalEnv = globalEnv;
     const functions = new Map();
@@ -923,14 +923,7 @@ class Interpreter {
     }
     for (let i = 0; i < stmts.length; i += 1) {
       const stmt = stmts[i];
-      const prevExecContext = this.currentExecContext;
-      this.currentExecContext = { stmts, index: i };
-      let res;
-      try {
-        res = this.exec(stmt, env, functions);
-      } finally {
-        this.currentExecContext = prevExecContext;
-      }
+      const res = this.exec(stmt, env, functions);
       if (res && res.type) {
         if (res.type === "return") return res;
         if (res.type === "break") return res;
@@ -948,14 +941,100 @@ class Interpreter {
     return { type: "ok", value: lastExpr };
   }
 
-  resolveNextNameFromCurrentContext() {
-    if (!this.currentExecContext) return null;
-    const { stmts, index } = this.currentExecContext;
-    for (let i = index + 1; i < stmts.length; i += 1) {
+  annotateThenNextTargets(stmts) {
+    const findNextFuncDefName = (list, start) => {
+      for (let i = start; i < list.length; i += 1) {
+        const stmt = list[i];
+        if (stmt && stmt.type === "FuncDef" && stmt.name) return stmt.name;
+      }
+      return null;
+    };
+
+    const annotateExpr = (expr, nextName) => {
+      if (!expr || typeof expr !== "object") return;
+      switch (expr.type) {
+        case "Call":
+          if (
+            expr.name === "THEN" &&
+            expr.args &&
+            expr.args.length >= 1 &&
+            expr.args[0] &&
+            expr.args[0].type === "Literal" &&
+            expr.args[0].value === "NEXT"
+          ) {
+            expr.resolvedNextName = nextName;
+          }
+          for (const arg of expr.args || []) annotateExpr(arg, nextName);
+          break;
+        case "Binary":
+          annotateExpr(expr.left, nextName);
+          annotateExpr(expr.right, nextName);
+          break;
+        case "Unary":
+          annotateExpr(expr.expr, nextName);
+          break;
+        case "ArrayLiteral":
+          for (const item of expr.items || []) annotateExpr(item, nextName);
+          break;
+        case "ObjectLiteral":
+          for (const pair of expr.pairs || []) annotateExpr(pair.value, nextName);
+          break;
+        case "Member":
+          annotateExpr(expr.object, nextName);
+          break;
+        case "Index":
+          annotateExpr(expr.object, nextName);
+          annotateExpr(expr.index, nextName);
+          break;
+        default:
+          break;
+      }
+    };
+
+    for (let i = 0; i < stmts.length; i += 1) {
       const stmt = stmts[i];
-      if (stmt && stmt.type === "FuncDef" && stmt.name) return stmt.name;
+      const nextName = findNextFuncDefName(stmts, i + 1);
+      switch (stmt.type) {
+        case "ExprStmt":
+          annotateExpr(stmt.expr, nextName);
+          break;
+        case "Assign":
+          annotateExpr(stmt.target, nextName);
+          annotateExpr(stmt.value, nextName);
+          break;
+        case "GlobalAssign":
+          annotateExpr(stmt.value, nextName);
+          break;
+        case "Return":
+          annotateExpr(stmt.expr, nextName);
+          break;
+        case "If":
+          for (const branch of stmt.branches || []) {
+            annotateExpr(branch.cond, nextName);
+            this.annotateThenNextTargets(branch.body || []);
+          }
+          if (stmt.elseBody) this.annotateThenNextTargets(stmt.elseBody);
+          break;
+        case "While":
+          annotateExpr(stmt.cond, nextName);
+          this.annotateThenNextTargets(stmt.body || []);
+          break;
+        case "For":
+          annotateExpr(stmt.start, nextName);
+          annotateExpr(stmt.end, nextName);
+          this.annotateThenNextTargets(stmt.body || []);
+          break;
+        case "ForEach":
+          annotateExpr(stmt.iterable, nextName);
+          this.annotateThenNextTargets(stmt.body || []);
+          break;
+        case "FuncDef":
+          this.annotateThenNextTargets(stmt.body || []);
+          break;
+        default:
+          break;
+      }
     }
-    return null;
   }
 
   exec(stmt, env, functions) {
@@ -1133,7 +1212,7 @@ class Interpreter {
         throw new Error(`Unknown unary op ${expr.op}`);
       }
       case "Call": {
-        return this.callFunction(expr.name, expr.args, env, functions);
+        return this.callFunction(expr.name, expr.args, env, functions, expr);
       }
       case "ArrayLiteral":
         return expr.items.map((item) => this.evalExpr(item, env, functions));
@@ -1178,7 +1257,7 @@ class Interpreter {
     }
   }
 
-  callFunction(name, argsExpr, env, functions) {
+  callFunction(name, argsExpr, env, functions, callExpr = null) {
     const fn = functions.get(name);
     if (!fn) throw new Error(`Unknown function: ${name}`);
     const arity = fn.arity;
@@ -1223,7 +1302,10 @@ class Interpreter {
     if (extras) {
       for (const v of extras) this.stack.push(v);
     }
-    if (fn.fn) return fn.fn(args);
+    if (fn.fn) {
+      if (name === "THEN") return this.thenPromise(args, callExpr ? callExpr.resolvedNextName : null);
+      return fn.fn(args);
+    }
     this.callStack.push(name);
     try {
       const local = new Environment(this.globalEnv);
@@ -1600,12 +1682,12 @@ class Interpreter {
     return promise;
   }
 
-  thenPromise(args) {
+  thenPromise(args, resolvedNextName = null) {
     let promise = null;
     let name = null;
     let fnArgs = [];
     const caller = this.callStack.length ? this.callStack[this.callStack.length - 1] : null;
-    const nextName = caller ? null : this.resolveNextNameFromCurrentContext();
+    const nextName = caller ? null : resolvedNextName;
     // Promise detection relies on SLEEP-tagged objects with __ls7_promise === true.
     if (args.length >= 2 && args[0] && typeof args[0] === "object" && args[0].__ls7_promise === true) {
       promise = args[0];
