@@ -16,12 +16,11 @@ END
 
 PRINT STRING waiting
 
-EXIT
 
-MAIN
-    READ_FILE "myfile.txt" WHILE
-ON data
-    h
+// MAIN
+//     READ_FILE "myfile.txt" WHILE
+// ON data
+//     h
 
 
 

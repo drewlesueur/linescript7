@@ -158,7 +158,7 @@ function preprocess(source) {
     for (let i = 0; i < line.length; i += 1) {
       const c = line[i];
       if (c === '"') inString = !inString;
-      if (c === "#" && !inString) break;
+      if (!inString && (c === "#" || (c === "/" && line[i + 1] === "/"))) break;
       out += c;
     }
     return out;
@@ -1225,6 +1225,11 @@ class Interpreter {
   callNextFunction(args = []) {
     if (!this.callStack.length) return null;
     const current = this.callStack[this.callStack.length - 1];
+    return this.callNextFunctionFrom(current, args);
+  }
+
+  callNextFunctionFrom(current, args = []) {
+    if (!current) return null;
     const idx = this.functionOrder.indexOf(current);
     if (idx === -1 || idx + 1 >= this.functionOrder.length) return null;
     const nextName = this.functionOrder[idx + 1];
@@ -1557,7 +1562,11 @@ class Interpreter {
         const callbacks = p.callbacks.slice();
         p.callbacks.length = 0;
         for (const cb of callbacks) {
-          this.callFunctionWithValues(cb.name, cb.args);
+          if (cb.name === "NEXT") {
+            this.callNextFunctionFrom(cb.caller, cb.args);
+          } else {
+            this.callFunctionWithValues(cb.name, cb.args);
+          }
         }
       } catch (err) {
         this.asyncErrors.push(err);
@@ -1573,6 +1582,7 @@ class Interpreter {
     let promise = null;
     let name = null;
     let fnArgs = [];
+    const caller = this.callStack.length ? this.callStack[this.callStack.length - 1] : null;
     // Promise detection relies on SLEEP-tagged objects with __ls7_promise === true.
     if (args.length >= 2 && args[0] && typeof args[0] === "object" && args[0].__ls7_promise === true) {
       promise = args[0];
@@ -1592,9 +1602,10 @@ class Interpreter {
     }
     if (typeof name !== "string") throw new Error("THEN function name must be string");
     if (promise.done) {
+      if (name === "NEXT") return this.callNextFunctionFrom(caller, fnArgs);
       return this.callFunctionWithValues(name, fnArgs);
     }
-    promise.callbacks.push({ name, args: fnArgs });
+    promise.callbacks.push({ name, args: fnArgs, caller });
     return promise;
   }
 
