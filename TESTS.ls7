@@ -372,7 +372,6 @@ EXEC_DONE_DO stdOut stdErr code
     ASSERT_EQ code 0 "exec-then-do-code"
 END
 
-exec_demo2_code = -1
 EXEC_DEMO2
     p = EXEC "sh -c 'printf demo2_out; printf demo2_err 1>&2; exit 7'"
     THEN (p) "LSDONE2"
@@ -381,7 +380,6 @@ LSDONE2 stdOut stdErr code
     ASSERT_EQ stdOut "demo2_out" "exec-promise-stdout"
     ASSERT_EQ stdErr "demo2_err" "exec-promise-stderr"
     ASSERT_EQ code 7 "exec-promise-code"
-    GLOBAL exec_demo2_code = code
 END
 EXEC_DEMO2
 
